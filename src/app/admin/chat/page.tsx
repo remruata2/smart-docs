@@ -1044,7 +1044,7 @@ export default function AdminChatPage() {
       // Add title
       doc.setFontSize(16);
       doc.setFont('helvetica', 'bold');
-      doc.text('CID AI Response', margin, currentY);
+      doc.text('AI Response', margin, currentY);
       currentY += 15;
 
       // Add timestamp
@@ -1175,19 +1175,14 @@ export default function AdminChatPage() {
                 <Bot className="h-12 w-12" />
                 <div className="text-center">
                   <p className="text-lg font-medium">
-                    Welcome to CID AI Assistant
+                    Welcome to AI Assistant
                   </p>
                   <p className="text-sm">
                     Ask me anything about the database records
                   </p>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
-                  <Badge variant="outline">
-                    Try: "Show me arms recovery cases"
-                  </Badge>
-                  <Badge variant="outline">Try: "Cases from 2007"</Badge>
-                  <Badge variant="outline">Try: "Case of Vanlalmawia"</Badge>
-                  <Badge variant="outline">Try: "Latest 3 cases"</Badge>
+                 
                 </div>
               </div>
             ) : (
@@ -1463,7 +1458,7 @@ export default function AdminChatPage() {
                 value={inputMessage}
                 onChange={(e) => setInputMessage(e.target.value)}
                 onKeyPress={handleKeyPress}
-                placeholder="Ask about CID database records..."
+                placeholder="Ask about database records..."
                 disabled={isLoading}
                 className="flex-1"
                 maxLength={1000}

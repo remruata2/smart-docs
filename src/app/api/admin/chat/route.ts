@@ -165,7 +165,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: "CID AI Chat API is available",
+      message: "AI Chat API is available",
       user: session.user.email,
       timestamp: new Date().toISOString(),
     });
