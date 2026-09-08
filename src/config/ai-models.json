@@ -1,8 +1,9 @@
 {
   "gemini": [
-    { "model": "gemini-2.5-pro", "label": "Gemini 2.5 Pro", "active": true },
-    { "model": "gemini-2.0-pro-exp", "label": "Gemini 2.0 Pro (Experimental)", "active": true },
-    { "model": "gemini-1.5-pro", "label": "Gemini 1.5 Pro", "active": true },
-    { "model": "gemini-1.5-flash", "label": "Gemini 1.5 Flash", "active": true }
+    { "model": "gemini-2.5-flash", "label": "Gemini 2.5 Flash (Fastest)", "active": true },
+    { "model": "gemini-3-flash-preview", "label": "Gemini 3 Flash Preview", "active": true },
+    { "model": "gemini-flash-latest", "label": "Gemini Flash (Latest)", "active": true },
+    { "model": "gemini-3.5-flash-lite", "label": "Gemini 3.5 Flash Lite", "active": true },
+    { "model": "gemini-3.1-pro-preview", "label": "Gemini 3.1 Pro (Deep Reasoning)", "active": true }
   ]
 }

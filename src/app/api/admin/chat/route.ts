@@ -2,9 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
 import {
-  processChatMessageEnhanced,
-  ChatMessage,
-} from "@/lib/ai-service-enhanced";
+  processChat,
+  processChatMessage,
+} from "@/lib/ai/chat/process-chat";
+import type { ChatMessage } from "@/lib/ai/chat/types";
 import { isAdmin } from "@/lib/auth";
 
 export async function POST(request: NextRequest) {
@@ -29,7 +30,7 @@ export async function POST(request: NextRequest) {
 
     // Validate request body
     const body = await request.json();
-    const { message, conversationHistory, provider, model, keyId } = body;
+    const { message, conversationHistory, provider, model, keyId, stream = true } = body;
 
     if (!message || typeof message !== "string") {
       return NextResponse.json(
@@ -45,9 +46,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (message.length > 1000) {
+    if (message.length > 2000) {
       return NextResponse.json(
-        { error: "Message is too long (max 1000 characters)" },
+        { error: "Message is too long (max 2000 characters)" },
         { status: 400 }
       );
     }
@@ -77,31 +78,78 @@ export async function POST(request: NextRequest) {
       opts.keyId = parsed;
     }
 
-    // Process the chat message
-    console.log(`[ADMIN CHAT] User ${session.user.email} asked: "${message}"`);
+    console.log(`[ADMIN CHAT] User ${session.user.email} asked: "${message.substring(0, 80)}" (stream=${stream})`);
 
-    const result = await processChatMessageEnhanced(
+    // Handle streaming response via Server-Sent Events (SSE)
+    if (stream) {
+      const encoder = new TextEncoder();
+      const customReadable = new ReadableStream({
+        async start(controller) {
+          try {
+            for await (const chunk of processChat(
+              message,
+              conversationHistory || [],
+              opts
+            )) {
+              if (chunk.type === "metadata") {
+                controller.enqueue(
+                  encoder.encode(`event: metadata\ndata: ${JSON.stringify(chunk)}\n\n`)
+                );
+              } else if (chunk.type === "progress") {
+                controller.enqueue(
+                  encoder.encode(`event: progress\ndata: ${JSON.stringify(chunk)}\n\n`)
+                );
+              } else if (chunk.type === "token") {
+                controller.enqueue(
+                  encoder.encode(`event: token\ndata: ${JSON.stringify(chunk)}\n\n`)
+                );
+              } else if (chunk.type === "sources") {
+                controller.enqueue(
+                  encoder.encode(`event: sources\ndata: ${JSON.stringify(chunk)}\n\n`)
+                );
+              } else if (chunk.type === "done") {
+                controller.enqueue(
+                  encoder.encode(`event: done\ndata: ${JSON.stringify(chunk)}\n\n`)
+                );
+              }
+            }
+            controller.close();
+          } catch (streamError: any) {
+            console.error("[ADMIN CHAT STREAM ERROR]", streamError);
+            const errPayload = JSON.stringify({
+              type: "error",
+              error: "Failed to process question. Please try again.",
+            });
+            controller.enqueue(encoder.encode(`event: error\ndata: ${errPayload}\n\n`));
+            controller.close();
+          }
+        },
+      });
+
+      return new NextResponse(customReadable, {
+        headers: {
+          "Content-Type": "text/event-stream; charset=utf-8",
+          "Cache-Control": "no-cache, no-transform",
+          Connection: "keep-alive",
+        },
+      });
+    }
+
+    // Non-streaming fallback
+    const result = await processChatMessage(
       message,
       conversationHistory || [],
-      undefined,
-      true,
       opts
     );
 
-    // Create response message
     const responseMessage: ChatMessage = {
       id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       role: "assistant",
       content: result.response,
       timestamp: new Date(),
       sources: result.sources,
-      tokenCount: result.tokenCount, // Include token count information
+      tokenCount: result.tokenCount,
     };
-
-    // Log the interaction for audit purposes
-    console.log(
-      `[ADMIN CHAT] Response generated with ${result.sources.length} sources`
-    );
 
     return NextResponse.json({
       success: true,
@@ -110,7 +158,6 @@ export async function POST(request: NextRequest) {
       searchQuery: result.searchQuery,
       searchMethod: result.searchMethod,
       queryType: result.queryType,
-      analysisUsed: result.analysisUsed,
       timestamp: new Date().toISOString(),
     });
   } catch (error: any) {

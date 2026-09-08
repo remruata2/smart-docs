@@ -46,27 +46,45 @@ export class HybridSearchService {
       );
 
       if (tsvectorResults.length === 0) {
-        console.log(
-          "[HYBRID SEARCH] Step 3 - Using intelligent fallback (full semantic search)"
-        );
+        try {
+          console.log(
+            "[HYBRID SEARCH] Step 3 - Attempting intelligent fallback (semantic search)"
+          );
+          const semanticResults = await SemanticVectorService.semanticSearch(
+            query,
+            limit
+          );
 
-        // Step 3: The Intelligent Fallback
-        const semanticResults = await SemanticVectorService.semanticSearch(
-          query,
-          limit
-        );
+          if (semanticResults && semanticResults.length > 0) {
+            return {
+              results: semanticResults.map((result) => ({
+                ...result,
+                semantic_similarity: result.similarity,
+                combined_score: result.similarity,
+              })),
+              searchMethod: "semantic_fallback",
+              stats: {
+                tsvectorResults: 0,
+                semanticResults: semanticResults.length,
+                finalResults: semanticResults.length,
+              },
+            };
+          }
+        } catch (semanticErr) {
+          console.warn(
+            "[HYBRID SEARCH] Semantic search unavailable, falling back to keyword search"
+          );
+        }
 
+        // Resilient keyword text fallback (ILIKE across fields)
+        const textResults = await this.textFallbackSearch(query, limit);
         return {
-          results: semanticResults.map((result) => ({
-            ...result,
-            semantic_similarity: result.similarity,
-            combined_score: result.similarity,
-          })),
-          searchMethod: "semantic_fallback",
+          results: textResults,
+          searchMethod: "tsvector_only",
           stats: {
             tsvectorResults: 0,
-            semanticResults: semanticResults.length,
-            finalResults: semanticResults.length,
+            semanticResults: 0,
+            finalResults: textResults.length,
           },
         };
       }
@@ -280,5 +298,39 @@ export class HybridSearchService {
     );
 
     return finalResults;
+  }
+
+  private static async textFallbackSearch(
+    query: string,
+    limit: number = 20
+  ): Promise<HybridSearchResult[]> {
+    const raw = (query || "").trim();
+    if (!raw) return [];
+
+    const words = raw
+      .split(/\s+/)
+      .map((w) => w.replace(/[^a-zA-Z0-9]/g, "").trim())
+      .filter((w) => w.length >= 2);
+
+    if (words.length === 0) return [];
+
+    const conditions = words.map(
+      (_, i) => `(title ILIKE '%' || $${i + 1} || '%' OR file_no ILIKE '%' || $${i + 1} || '%' OR category ILIKE '%' || $${i + 1} || '%' OR note ILIKE '%' || $${i + 1} || '%')`
+    );
+
+    const sql = `
+      SELECT id, file_no, category, title, note, entry_date_real, 0.5 as ts_rank
+      FROM file_list
+      WHERE ${conditions.join(" OR ")}
+      ORDER BY entry_date_real DESC NULLS LAST
+      LIMIT $${words.length + 1}
+    `;
+
+    try {
+      return (await prisma.$queryRawUnsafe(sql, ...words, limit)) as HybridSearchResult[];
+    } catch (e) {
+      console.warn("[HYBRID SEARCH] Text fallback error:", e);
+      return [];
+    }
   }
 }

@@ -141,6 +141,7 @@ temp/
 *.sqlite3
 
 # Prisma
+*.node
 /prisma/migrations/dev.db
 /prisma/migrations/dev.db-journal
 

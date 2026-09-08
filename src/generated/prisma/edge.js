@@ -193,7 +193,7 @@ const config = {
       "value": "prisma-client-js"
     },
     "output": {
-      "value": "/Users/remruata/projects/cid-ai/src/generated/prisma",
+      "value": "D:\\Projects\\cid-ai\\src\\generated\\prisma",
       "fromEnvVar": null
     },
     "config": {
@@ -202,12 +202,12 @@ const config = {
     "binaryTargets": [
       {
         "fromEnvVar": null,
-        "value": "darwin-arm64",
+        "value": "windows",
         "native": true
       }
     ],
     "previewFeatures": [],
-    "sourceFilePath": "/Users/remruata/projects/cid-ai/prisma/schema.prisma",
+    "sourceFilePath": "D:\\Projects\\cid-ai\\prisma\\schema.prisma",
     "isCustomOutput": true
   },
   "relativeEnvPaths": {

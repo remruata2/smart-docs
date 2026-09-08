@@ -114,7 +114,7 @@ export async function recordKeyUsage(keyId: number, ok: boolean) {
 }
 
 // Fetch the highest-priority active model for a provider from ai_models
-export async function getActiveModelName(provider: AIProvider): Promise<string | null> {
+export async function getActiveModelName(provider: AIProvider): Promise<string> {
   try {
     const m = await prisma.aiModel.findFirst({
       where: { provider: provider as any, active: true },
@@ -124,10 +124,10 @@ export async function getActiveModelName(provider: AIProvider): Promise<string |
       ],
       select: { name: true },
     });
-    return m?.name ?? null;
+    return m?.name ?? "gemini-2.5-flash";
   } catch (e) {
     console.error("[AI-MODEL] Failed to get active model from DB", e);
-    return null;
+    return "gemini-2.5-flash";
   }
 }
 
@@ -142,11 +142,13 @@ export async function getActiveModelNames(provider: AIProvider): Promise<string[
       ],
       select: { name: true },
     });
-    return rows.map((r) => r.name);
+    if (rows.length > 0) {
+      return rows.map((r) => r.name);
+    }
   } catch (e) {
     console.error("[AI-MODEL] Failed to list active models from DB", e);
-    return [];
   }
+  return ["gemini-2.5-flash", "gemini-3-flash-preview", "gemini-flash-latest", "gemini-3.5-flash-lite"];
 }
 
 // Gemini-specific client factory with DB-managed keys and fallback to env
