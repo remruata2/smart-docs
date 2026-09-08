@@ -194,7 +194,7 @@ const config = {
       "value": "prisma-client-js"
     },
     "output": {
-      "value": "D:\\Projects\\cid-ai\\src\\generated\\prisma",
+      "value": "D:\\Projects\\rag-ai\\src\\generated\\prisma",
       "fromEnvVar": null
     },
     "config": {
@@ -208,7 +208,7 @@ const config = {
       }
     ],
     "previewFeatures": [],
-    "sourceFilePath": "D:\\Projects\\cid-ai\\prisma\\schema.prisma",
+    "sourceFilePath": "D:\\Projects\\rag-ai\\prisma\\schema.prisma",
     "isCustomOutput": true
   },
   "relativeEnvPaths": {
