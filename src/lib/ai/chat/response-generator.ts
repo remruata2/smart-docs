@@ -57,7 +57,7 @@ function buildPrompt(
 		default:
 			roleInstructions = `
 - Answer the user's specific question directly using the provided database records.
-- Cite relevant file numbers (e.g. [FILE_NO] or File: FILE_NO).`;
+- Do NOT append inline bracketed citations like "[File: 1]", "[File 1]", "[Record 1]", or "[1]" to your answers or bullet points. The user interface automatically presents referenced source documents separately at the bottom.`;
 	}
 
 	const prompt = `You are an expert AI assistant for the Smart Docs document archive and intelligence system.
@@ -75,9 +75,11 @@ ${historyContext}
 ${roleInstructions}
 - Always be professional, precise, and factual.
 - Ground your answers strictly in the Database Context.
-- Reference relevant file numbers when citing documents or records.
+- CRITICAL: Never include inline file citations or bracketed reference tags like "[File: 1]", "[File 1]", "[Record 1]", or "[1]" anywhere in your response text. All source references are already rendered automatically in the UI.
+- If an official government order number, notification number, or file reference is part of the actual record content (e.g. "Order No: No. A.22012/47/2025-CSW-DPAR"), mention it naturally within the prose without surrounding bracketed tags like "[File: 1]".
+- For dates and numbers, write them cleanly using standard text (e.g. "28th July, 2026" instead of raw HTML tags like "28<sup>th</sup> July, 2026").
 - If the requested information is not in the context, state that clearly without guessing.
-- Use clear markdown formatting (headings, bullet points, bold key terms).
+- Use clean markdown formatting (headings, bullet points, bold key terms).
 
 Answer:`;
 

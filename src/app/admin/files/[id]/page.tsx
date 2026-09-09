@@ -11,6 +11,7 @@ import { pageContainer, pageTitle, cardContainer } from "@/styles/ui-classes";
 import { format } from "date-fns";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import rehypeRaw from "rehype-raw";
 import { isHtmlContent } from "@/lib/contentFormatDetector";
 
 interface DetailItemProps {
@@ -50,8 +51,24 @@ const DetailItem: React.FC<DetailItemProps> = ({
         <div className="mt-1 text-md text-gray-900 prose prose-sm max-w-none">
           <ReactMarkdown
             remarkPlugins={[remarkGfm]}
+            rehypePlugins={[rehypeRaw]}
             components={{
               // Custom styling for markdown elements
+              sup: ({ children }) => (
+                <sup className="text-[0.75em] leading-none align-super font-normal text-gray-900">
+                  {children}
+                </sup>
+              ),
+              sub: ({ children }) => (
+                <sub className="text-[0.75em] leading-none align-sub font-normal text-gray-900">
+                  {children}
+                </sub>
+              ),
+              u: ({ children }) => <u className="underline underline-offset-2">{children}</u>,
+              del: ({ children }) => <del className="line-through text-gray-500">{children}</del>,
+              mark: ({ children }) => (
+                <mark className="bg-yellow-200 px-1 py-0.5 rounded">{children}</mark>
+              ),
               p: ({ children }) => (
                 <p className="mb-2 last:mb-0 break-words leading-relaxed">
                   {children}

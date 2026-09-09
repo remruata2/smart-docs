@@ -92,9 +92,8 @@ export function prepareContextForAI(
 			: "No details available";
 
 		return `
-[RECORD ${index + 1}] (Relevance: ${relevanceStr})
+--- DOCUMENT ENTRY ${index + 1}: ${record.title} ---
 File Number: ${record.file_no}
-Title: ${record.title}
 Category: ${record.category}
 Date: ${dateStr}
 Content:

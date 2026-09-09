@@ -1,12 +1,26 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import rehypeRaw from "rehype-raw";
 import { Bot, User, Copy, Check, FileText, ChevronDown, ChevronUp } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ChatMessage, ChatSource } from "@/lib/ai/chat/types";
+
+/**
+ * Strips unwanted inline file/record references like [File: 1], [File 1], (File: 1), etc.
+ * preserving any attached grammatical suffixes (e.g. "[File: 1]-a" -> "-a").
+ */
+export function cleanFileReferences(text: string): string {
+	if (!text) return "";
+	return text
+		// Handle bracketed references: [File: 1], [File 1], [Record: 1], [Document 1], [Files: 1, 2], etc.
+		.replace(/\s*\[(?:Files?|Records?|Documents?|Docs?|Sources?):?\s*[\d,\s;]+\](-[a-zA-Z]+)?/gi, (_match, suffix) => suffix || "")
+		// Handle parenthesized references: (File: 1), (Record 1), etc.
+		.replace(/\s*\((?:Files?|Records?|Documents?|Docs?|Sources?):?\s*[\d,\s;]+\)(-[a-zA-Z]+)?/gi, (_match, suffix) => suffix || "");
+}
 
 interface ChatMessageItemProps {
 	message: ChatMessage;
@@ -23,9 +37,14 @@ export function ChatMessageItem({
 	const [copied, setCopied] = useState(false);
 	const [showAllSources, setShowAllSources] = useState(false);
 
+	const cleanedContent = useMemo(
+		() => (isUser ? message.content : cleanFileReferences(message.content)),
+		[message.content, isUser]
+	);
+
 	const handleCopy = async () => {
 		try {
-			await navigator.clipboard.writeText(message.content);
+			await navigator.clipboard.writeText(cleanedContent);
 			setCopied(true);
 			setTimeout(() => setCopied(false), 2000);
 		} catch (err) {
@@ -86,36 +105,96 @@ export function ChatMessageItem({
 				<div className="prose prose-sm dark:prose-invert max-w-none text-foreground leading-relaxed break-words">
 					<ReactMarkdown
 						remarkPlugins={[remarkGfm]}
+						rehypePlugins={[rehypeRaw]}
 						components={{
+							sup: ({ children }) => (
+								<sup className="text-[0.75em] leading-none align-super font-medium text-foreground">
+									{children}
+								</sup>
+							),
+							sub: ({ children }) => (
+								<sub className="text-[0.75em] leading-none align-sub font-medium text-foreground">
+									{children}
+								</sub>
+							),
+							u: ({ children }) => <u className="underline underline-offset-2">{children}</u>,
+							ins: ({ children }) => <ins className="underline underline-offset-2">{children}</ins>,
+							del: ({ children }) => <del className="line-through text-muted-foreground">{children}</del>,
+							s: ({ children }) => <s className="line-through text-muted-foreground">{children}</s>,
+							mark: ({ children }) => (
+								<mark className="bg-amber-200/80 dark:bg-amber-900/60 dark:text-amber-100 px-1 py-0.5 rounded text-inherit">
+									{children}
+								</mark>
+							),
+							small: ({ children }) => <small className="text-xs text-muted-foreground">{children}</small>,
+							strong: ({ children }) => <strong className="font-semibold text-foreground">{children}</strong>,
+							b: ({ children }) => <b className="font-semibold text-foreground">{children}</b>,
+							em: ({ children }) => <em className="italic">{children}</em>,
+							i: ({ children }) => <i className="italic">{children}</i>,
+							blockquote: ({ children }) => (
+								<blockquote className="border-l-4 border-primary/50 bg-muted/20 pl-3.5 py-1 my-2 text-muted-foreground italic rounded-r">
+									{children}
+								</blockquote>
+							),
 							table: ({ children }) => (
-								<div className="overflow-x-auto my-3 border rounded-lg">
+								<div className="overflow-x-auto my-3 border border-border rounded-lg shadow-xs">
 									<table className="min-w-full divide-y divide-border text-xs">
 										{children}
 									</table>
 								</div>
 							),
+							thead: ({ children }) => <thead className="bg-muted/60">{children}</thead>,
+							tbody: ({ children }) => <tbody className="divide-y divide-border/50">{children}</tbody>,
+							tr: ({ children }) => <tr className="hover:bg-muted/30 transition-colors">{children}</tr>,
 							th: ({ children }) => (
-								<th className="px-3 py-2 bg-muted/60 font-semibold text-left text-foreground">
+								<th className="px-3 py-2 bg-muted/60 font-semibold text-left text-foreground text-xs">
 									{children}
 								</th>
 							),
 							td: ({ children }) => (
-								<td className="px-3 py-2 border-t border-border/50 text-foreground/90">
+								<td className="px-3 py-2 border-t border-border/50 text-foreground/90 text-xs">
 									{children}
 								</td>
 							),
-							p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
-							ul: ({ children }) => <ul className="list-disc pl-4 mb-2 space-y-1">{children}</ul>,
-							ol: ({ children }) => <ol className="list-decimal pl-4 mb-2 space-y-1">{children}</ol>,
-							li: ({ children }) => <li className="pl-0.5">{children}</li>,
-							code: ({ children }) => (
-								<code className="bg-muted px-1.5 py-0.5 rounded font-mono text-xs text-foreground">
+							p: ({ children }) => <p className="mb-2 last:mb-0 leading-relaxed">{children}</p>,
+							ul: ({ children }) => <ul className="list-disc pl-5 mb-2 space-y-1">{children}</ul>,
+							ol: ({ children }) => <ol className="list-decimal pl-5 mb-2 space-y-1">{children}</ol>,
+							li: ({ children }) => <li className="pl-0.5 leading-relaxed">{children}</li>,
+							h1: ({ children }) => <h1 className="text-xl font-bold mt-4 mb-2 text-foreground">{children}</h1>,
+							h2: ({ children }) => <h2 className="text-lg font-bold mt-3 mb-1.5 text-foreground">{children}</h2>,
+							h3: ({ children }) => <h3 className="text-base font-semibold mt-2.5 mb-1 text-foreground">{children}</h3>,
+							h4: ({ children }) => <h4 className="text-sm font-semibold mt-2 mb-1 text-foreground">{children}</h4>,
+							hr: () => <hr className="my-3 border-border" />,
+							a: ({ href, children }) => (
+								<a
+									href={href}
+									target="_blank"
+									rel="noopener noreferrer"
+									className="text-primary font-medium underline underline-offset-2 hover:opacity-80 transition-opacity"
+								>
 									{children}
-								</code>
+								</a>
 							),
+							code: ({ className, children, ...props }: any) => {
+								const isInline = !className && typeof children === "string" && !children.includes("\n");
+								if (isInline) {
+									return (
+										<code className="bg-muted px-1.5 py-0.5 rounded font-mono text-xs text-foreground font-medium">
+											{children}
+										</code>
+									);
+								}
+								return (
+									<div className="my-2 rounded-lg bg-muted/80 p-3 overflow-x-auto border border-border">
+										<code className="font-mono text-xs text-foreground block">
+											{children}
+										</code>
+									</div>
+								);
+							},
 						}}
 					>
-						{message.content}
+						{cleanedContent}
 					</ReactMarkdown>
 
 					{isStreaming && (
