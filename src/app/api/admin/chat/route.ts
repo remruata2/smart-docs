@@ -91,27 +91,9 @@ export async function POST(request: NextRequest) {
               conversationHistory || [],
               opts
             )) {
-              if (chunk.type === "metadata") {
-                controller.enqueue(
-                  encoder.encode(`event: metadata\ndata: ${JSON.stringify(chunk)}\n\n`)
-                );
-              } else if (chunk.type === "progress") {
-                controller.enqueue(
-                  encoder.encode(`event: progress\ndata: ${JSON.stringify(chunk)}\n\n`)
-                );
-              } else if (chunk.type === "token") {
-                controller.enqueue(
-                  encoder.encode(`event: token\ndata: ${JSON.stringify(chunk)}\n\n`)
-                );
-              } else if (chunk.type === "sources") {
-                controller.enqueue(
-                  encoder.encode(`event: sources\ndata: ${JSON.stringify(chunk)}\n\n`)
-                );
-              } else if (chunk.type === "done") {
-                controller.enqueue(
-                  encoder.encode(`event: done\ndata: ${JSON.stringify(chunk)}\n\n`)
-                );
-              }
+              controller.enqueue(
+                encoder.encode(`data: ${JSON.stringify(chunk)}\n\n`)
+              );
             }
             controller.close();
           } catch (streamError: any) {
@@ -120,7 +102,7 @@ export async function POST(request: NextRequest) {
               type: "error",
               error: "Failed to process question. Please try again.",
             });
-            controller.enqueue(encoder.encode(`event: error\ndata: ${errPayload}\n\n`));
+            controller.enqueue(encoder.encode(`data: ${errPayload}\n\n`));
             controller.close();
           }
         },

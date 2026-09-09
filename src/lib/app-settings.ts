@@ -55,15 +55,26 @@ async function ensureTableOnce(): Promise<void> {
   return ensureOncePromise;
 }
 
+// In-memory cache with TTL to avoid DB queries on every chat message
+const settingsCache = new Map<string, { value: string | null; expiresAt: number }>();
+const SETTINGS_CACHE_TTL_MS = 60_000; // 60 seconds
+
 export async function getSetting(key: string): Promise<string | null> {
+  // Check cache first
+  const cached = settingsCache.get(key);
+  if (cached && Date.now() < cached.expiresAt) {
+    return cached.value;
+  }
+
   try {
     await ensureTableOnce();
     const rows: Array<{ value: string }> = await prisma.$queryRawUnsafe(
       `SELECT value FROM app_settings WHERE key = $1 LIMIT 1`,
       key
     );
-    if (rows && rows.length > 0) return rows[0].value;
-    return null;
+    const value = rows && rows.length > 0 ? rows[0].value : null;
+    settingsCache.set(key, { value, expiresAt: Date.now() + SETTINGS_CACHE_TTL_MS });
+    return value;
   } catch (e) {
     console.warn("[APP-SETTINGS] getSetting failed", e);
     return null;
@@ -79,6 +90,8 @@ export async function setSetting(key: string, value: string): Promise<void> {
     key,
     value
   );
+  // Invalidate cache for this key
+  settingsCache.delete(key);
 }
 
 export async function getSettingInt(key: string, defaultValue: number): Promise<number> {

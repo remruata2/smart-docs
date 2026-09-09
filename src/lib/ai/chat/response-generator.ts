@@ -26,7 +26,13 @@ function buildPrompt(
 	const historyContext =
 		recentHistory.length > 0
 			? `\nCONVERSATION HISTORY:\n${recentHistory
-					.map((msg) => `${msg.role.toUpperCase()}: ${msg.content}`)
+					.map((msg) => {
+						// Truncate long messages (especially prior AI responses) to keep prompt lean
+						const content = msg.content.length > 300
+							? msg.content.substring(0, 300) + "..."
+							: msg.content;
+						return `${msg.role.toUpperCase()}: ${content}`;
+					})
 					.join("\n")}\n`
 			: "";
 
@@ -169,7 +175,7 @@ export async function* generateAIResponseStream(
 			const outputTokens = estimateTokenCount(fullText);
 
 			if (keyId) {
-				await recordKeyUsage(keyId, true);
+				recordKeyUsage(keyId, true).catch(() => {}); // fire-and-forget — don't block done event
 			}
 
 			yield {
@@ -182,7 +188,7 @@ export async function* generateAIResponseStream(
 			console.warn(`[AI-STREAM] Model ${modelName} failed, trying next fallback:`, error?.message || error);
 			lastError = error;
 			if (keyId) {
-				await recordKeyUsage(keyId, false);
+				recordKeyUsage(keyId, false).catch(() => {}); // fire-and-forget
 			}
 			continue;
 		}
@@ -244,7 +250,7 @@ export async function generateAIResponse(
 			const outputTokens = estimateTokenCount(text);
 
 			if (keyId) {
-				await recordKeyUsage(keyId, true);
+				recordKeyUsage(keyId, true).catch(() => {});
 			}
 
 			return { text, inputTokens, outputTokens, model: modelName };
@@ -252,7 +258,7 @@ export async function generateAIResponse(
 			console.warn(`[AI-GEN] Model ${modelName} failed:`, error?.message || error);
 			lastError = error;
 			if (keyId) {
-				await recordKeyUsage(keyId, false);
+				recordKeyUsage(keyId, false).catch(() => {});
 			}
 			continue;
 		}

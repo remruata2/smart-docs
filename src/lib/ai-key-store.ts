@@ -113,26 +113,27 @@ export async function recordKeyUsage(keyId: number, ok: boolean) {
   }
 }
 
-// Fetch the highest-priority active model for a provider from ai_models
-export async function getActiveModelName(provider: AIProvider): Promise<string> {
-  try {
-    const m = await prisma.aiModel.findFirst({
-      where: { provider: provider as any, active: true },
-      orderBy: [
-        { priority: "desc" },
-        { id: "asc" },
-      ],
-      select: { name: true },
-    });
-    return m?.name ?? "gemini-2.5-flash";
-  } catch (e) {
-    console.error("[AI-MODEL] Failed to get active model from DB", e);
-    return "gemini-2.5-flash";
-  }
-}
+// ─── In-memory caches to avoid DB queries on every chat message ───
+const CACHE_TTL_MS = 5 * 60_000; // 5 minutes
+
+// Cache for active model names (keyed by provider)
+let modelNamesCache: { data: string[]; expiresAt: number; provider: string } | null = null;
+
+// Cache for Gemini client (keyed by resolved keyId or "env")
+let geminiClientCache: {
+  client: GoogleGenerativeAI;
+  keyId: number | null;
+  cacheKey: string;
+  expiresAt: number;
+} | null = null;
 
 // Fetch all active model names ordered by priority (desc), then id
 export async function getActiveModelNames(provider: AIProvider): Promise<string[]> {
+  // Check cache
+  if (modelNamesCache && modelNamesCache.provider === provider && Date.now() < modelNamesCache.expiresAt) {
+    return modelNamesCache.data;
+  }
+
   try {
     const rows = await prisma.aiModel.findMany({
       where: { provider: provider as any, active: true },
@@ -143,12 +144,16 @@ export async function getActiveModelNames(provider: AIProvider): Promise<string[
       select: { name: true },
     });
     if (rows.length > 0) {
-      return rows.map((r) => r.name);
+      const names = rows.map((r) => r.name);
+      modelNamesCache = { data: names, provider, expiresAt: Date.now() + CACHE_TTL_MS };
+      return names;
     }
   } catch (e) {
     console.error("[AI-MODEL] Failed to list active models from DB", e);
   }
-  return ["gemini-2.5-flash", "gemini-3-flash-preview", "gemini-flash-latest", "gemini-3.5-flash-lite"];
+  const fallback = ["gemini-2.5-flash", "gemini-3-flash-preview", "gemini-flash-latest", "gemini-3.5-flash-lite"];
+  modelNamesCache = { data: fallback, provider, expiresAt: Date.now() + CACHE_TTL_MS };
+  return fallback;
 }
 
 // Gemini-specific client factory with DB-managed keys and fallback to env
@@ -156,6 +161,14 @@ export async function getGeminiClient(opts: KeySelection = { provider: "gemini" 
   if (opts.provider !== "gemini") {
     throw new Error("getGeminiClient only supports provider=gemini");
   }
+
+  const cacheKey = opts.keyId ? `db-${opts.keyId}` : "auto";
+
+  // Check cache — reuse if same key selection and not expired
+  if (geminiClientCache && geminiClientCache.cacheKey === cacheKey && Date.now() < geminiClientCache.expiresAt) {
+    return { client: geminiClientCache.client, keyId: geminiClientCache.keyId };
+  }
+
   const { apiKey, keyId } = await getProviderApiKey({ provider: "gemini", keyId: opts.keyId });
   const fallback = process.env.GEMINI_API_KEY || "";
   const keyToUse = apiKey || fallback;
@@ -164,6 +177,15 @@ export async function getGeminiClient(opts: KeySelection = { provider: "gemini" 
   }
   const client = new GoogleGenerativeAI(keyToUse);
   console.log(`[AI-KEY] provider=gemini keyId=${keyId ?? "env-fallback"} source=${apiKey ? "db" : "env"}`);
+
+  // Cache for subsequent requests
+  geminiClientCache = {
+    client,
+    keyId,
+    cacheKey,
+    expiresAt: Date.now() + CACHE_TTL_MS,
+  };
+
   return { client, keyId };
 }
 

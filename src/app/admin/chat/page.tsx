@@ -149,13 +149,36 @@ export default function AdminChatPage() {
 			let streamSources: ChatSource[] = [];
 			let streamTokenCount: any = null;
 			let isFirstToken = true;
+			let lineBuffer = ""; // Buffer for incomplete SSE lines across read() calls
+			let rafId: number | null = null; // For batched rendering
+			let pendingUpdate = false;
+
+			// Batch state updates to ~1 per animation frame instead of per-token
+			const scheduleUpdate = () => {
+				if (pendingUpdate) return;
+				pendingUpdate = true;
+				rafId = requestAnimationFrame(() => {
+					pendingUpdate = false;
+					setMessages((prev) =>
+						prev.map((msg) =>
+							msg.id === assistantMessageId
+								? { ...msg, content: accumulatedText }
+								: msg
+						)
+					);
+				});
+			};
 
 			while (true) {
 				const { done, value } = await reader.read();
 				if (done) break;
 
 				const chunk = decoder.decode(value, { stream: true });
-				const lines = chunk.split("\n");
+				// Prepend any leftover from previous read
+				const combined = lineBuffer + chunk;
+				const lines = combined.split("\n");
+				// Last element may be incomplete — save it for next iteration
+				lineBuffer = lines.pop() || "";
 
 				for (const line of lines) {
 					if (line.startsWith("data: ")) {
@@ -170,13 +193,7 @@ export default function AdminChatPage() {
 									setProgressText(null);
 								}
 								accumulatedText += eventData.text || "";
-								setMessages((prev) =>
-									prev.map((msg) =>
-										msg.id === assistantMessageId
-											? { ...msg, content: accumulatedText }
-											: msg
-									)
-								);
+								scheduleUpdate(); // Batched — renders once per frame
 							} else if (eventData.type === "sources") {
 								streamSources = eventData.sources || [];
 								setMessages((prev) =>
@@ -188,6 +205,8 @@ export default function AdminChatPage() {
 								);
 							} else if (eventData.type === "done") {
 								streamTokenCount = eventData.tokenCount;
+								// Cancel any pending RAF and do a final sync update
+								if (rafId) cancelAnimationFrame(rafId);
 								setMessages((prev) =>
 									prev.map((msg) =>
 										msg.id === assistantMessageId
@@ -208,6 +227,16 @@ export default function AdminChatPage() {
 						}
 					}
 				}
+			}
+
+			// Process any remaining buffered line after stream ends
+			if (lineBuffer.startsWith("data: ")) {
+				try {
+					const eventData = JSON.parse(lineBuffer.substring(6));
+					if (eventData.type === "token") {
+						accumulatedText += eventData.text || "";
+					}
+				} catch { /* ignore */ }
 			}
 		} catch (err: any) {
 			console.error("[AdminChat] Communication error:", err);

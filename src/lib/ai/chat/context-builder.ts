@@ -49,45 +49,27 @@ export function prepareContextForAI(
 		return "No relevant records found in the database.";
 	}
 
+	// Cap to top 10 records to keep prompt lean and reduce Gemini prefill latency
+	const topRecords = records.slice(0, 10);
+
 	// Group records by category for structural clarity
-	const recordsByCategory = records.reduce((acc, record) => {
+	const recordsByCategory = topRecords.reduce((acc, record) => {
 		const category = record.category || "Uncategorized";
 		if (!acc[category]) acc[category] = [];
 		acc[category].push(record);
 		return acc;
 	}, {} as Record<string, SearchResult[]>);
 
-	// Structured index of records
-	const recordIndex = records.map((record, index) => {
+	// Full details (no separate index — avoids duplication of metadata)
+	const detailedRecords = topRecords.map((record, index) => {
 		const dateStr = record.entry_date_real
 			? new Date(record.entry_date_real).toLocaleDateString()
 			: "Unknown date";
-		const relevanceStr =
-			record.combined_score !== undefined
-				? `${(record.combined_score * 100).toFixed(1)}%`
-				: record.rank !== undefined
-				? `${(record.rank * 100).toFixed(1)}%`
-				: "Matched";
 
-		return `${index + 1}. [${record.file_no}] "${record.title}" - Category: ${record.category} | Date: ${dateStr} | Relevance: ${relevanceStr}`;
-	});
-
-	// Full details
-	const detailedRecords = records.map((record, index) => {
-		const dateStr = record.entry_date_real
-			? new Date(record.entry_date_real).toLocaleDateString()
-			: "Unknown date";
-		const relevanceStr =
-			record.combined_score !== undefined
-				? `${(record.combined_score * 100).toFixed(1)}%`
-				: record.rank !== undefined
-				? `${(record.rank * 100).toFixed(1)}%`
-				: "Matched";
-
-		// Truncate overly long content if needed to protect token context
+		// Truncate overly long content to protect token budget
 		const content = record.note
-			? record.note.length > 2000
-				? `${record.note.substring(0, 2000)}... [truncated]`
+			? record.note.length > 1200
+				? `${record.note.substring(0, 1200)}... [truncated]`
 				: record.note
 			: "No details available";
 
@@ -101,12 +83,9 @@ ${content}
 ---`;
 	});
 
-	return `DATABASE CONTEXT (${records.length} relevant records found):
+	return `DATABASE CONTEXT (${topRecords.length} relevant records found${records.length > 10 ? `, showing top 10 of ${records.length}` : ""}):
 
-=== RECORD INDEX ===
-${recordIndex.join("\n")}
-
-=== FULL RECORD DETAILS ===
+=== RECORD DETAILS ===
 ${detailedRecords.join("\n")}
 
 === CATEGORY SUMMARY ===
@@ -117,3 +96,4 @@ ${Object.entries(recordsByCategory)
 END OF DATABASE CONTEXT
 `;
 }
+
