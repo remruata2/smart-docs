@@ -1,59 +1,47 @@
 // Use explicit file path to avoid ESM directory import issues under ts-node
 import { PrismaClient } from "../generated/prisma/index.js";
+import { getGeminiClient } from "./ai-key-store";
 
 const prisma = new PrismaClient();
 
 export class SemanticVectorService {
-  private static embedder: any = null;
-  private static initPromise: Promise<void> | null = null;
-  private static isAvailable: boolean = true;
-
-  static async initialize() {
-    if (this.embedder) return;
-    if (!this.isAvailable) return;
-
-    if (!this.initPromise) {
-      this.initPromise = (async () => {
-        try {
-          console.log("Initializing semantic embedder...");
-          const { pipeline } = await import("@xenova/transformers");
-          this.embedder = await pipeline(
-            "feature-extraction",
-            "Xenova/all-MiniLM-L6-v2"
-          );
-          console.log("Semantic embedder initialized successfully");
-        } catch (error) {
-          console.warn(
-            "Warning: Could not initialize local @xenova/transformers embedder (optional native dependencies like sharp may be missing). Semantic vector search will gracefully fallback.",
-            error
-          );
-          this.isAvailable = false;
-          this.embedder = null;
-        }
-      })();
-    }
-
-    await this.initPromise;
-  }
-
+  /**
+   * Generate 384-dimensional vector embedding using Gemini text-embedding-004.
+   * Leverages Matryoshka Representation Learning (outputDimensionality: 384)
+   * to match the existing Postgres vector(384) column without database migrations.
+   */
   static async generateEmbedding(text: string): Promise<number[] | null> {
-    await this.initialize();
-    if (!this.embedder) {
+    try {
+      const { client } = await getGeminiClient({ provider: "gemini" });
+      const model = client.getGenerativeModel({ model: "text-embedding-004" });
+
+      // Prepare text for embedding while preserving structure
+      const preparedText = text
+        .replace(/\n+/g, " ")
+        .trim()
+        .substring(0, 2048);
+
+      if (!preparedText) {
+        return null;
+      }
+
+      const result = await model.embedContent({
+        content: { role: "user", parts: [{ text: preparedText }] },
+        outputDimensionality: 384,
+      } as any);
+
+      if (!result?.embedding?.values) {
+        return null;
+      }
+
+      return result.embedding.values;
+    } catch (error) {
+      console.warn(
+        "[SEMANTIC] Gemini text-embedding-004 failed, falling back to keyword search:",
+        error instanceof Error ? error.message : error
+      );
       return null;
     }
-
-    // Prepare text for embedding while preserving Markdown structure
-    const preparedText = text
-      .replace(/\n+/g, " ") // Replace multiple newlines with single space
-      .trim()
-      .substring(0, 1000); // Increased limit to capture more content with structure
-
-    const result = await this.embedder(preparedText, {
-      pooling: "mean",
-      normalize: true,
-    });
-
-    return Array.from(result.data);
   }
 
   static async updateSemanticVector(fileId: number, content: string) {
@@ -135,9 +123,9 @@ export class SemanticVectorService {
     }
   }
 
-  static async batchUpdateSemanticVectors() {
+  static async batchUpdateSemanticVectors(forceAll: boolean = false) {
     try {
-      console.log("🔄 Starting batch semantic vector update (NULL-only, with fallbacks)...");
+      console.log(`🔄 Starting batch semantic vector update (forceAll=${forceAll})...`);
 
       // Count rows missing semantic_vector before
       const missingBeforeRes = (await prisma.$queryRawUnsafe(
@@ -146,10 +134,12 @@ export class SemanticVectorService {
       const missingBefore = missingBeforeRes[0]?.c ?? 0;
       console.log(`📊 Missing semantic_vector before: ${missingBefore}`);
 
-      // Fetch only rows where semantic_vector is NULL, use raw SQL since Prisma can't filter Unsupported(vector)
-      const records = (await prisma.$queryRawUnsafe(
-        `SELECT id, note, title, category, file_no, entry_date FROM file_list WHERE semantic_vector IS NULL`
-      )) as Array<{
+      // Fetch rows: either all or only missing
+      const sql = forceAll
+        ? `SELECT id, note, title, category, file_no, entry_date FROM file_list`
+        : `SELECT id, note, title, category, file_no, entry_date FROM file_list WHERE semantic_vector IS NULL`;
+
+      const records = (await prisma.$queryRawUnsafe(sql)) as Array<{
         id: number;
         note: string | null;
         title?: string | null;
@@ -169,15 +159,20 @@ export class SemanticVectorService {
 
         if (content.length === 0) {
           console.log(
-            `Skipping file ${r.id} — no usable text (note/note_plain_text/title/category/file_no all empty)`
+            `Skipping file ${r.id} — no usable text (note/title/category/file_no all empty)`
           );
           continue;
         }
 
         await this.updateSemanticVector(r.id, content);
 
-        if ((i + 1) % 10 === 0) {
+        if ((i + 1) % 5 === 0 || i === records.length - 1) {
           console.log(`Progress: ${i + 1}/${records.length} records processed`);
+        }
+
+        // Small 100ms pause to respect API rate limits
+        if (i < records.length - 1) {
+          await new Promise((resolve) => setTimeout(resolve, 100));
         }
       }
 

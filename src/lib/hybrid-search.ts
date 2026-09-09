@@ -208,7 +208,8 @@ export class HybridSearchService {
     candidateIds: number[],
     limit: number
   ): Promise<HybridSearchResult[]> {
-    if (candidateIds.length === 0) return [];
+    // If 0 or only 1 candidate found, no re-ranking is needed
+    if (candidateIds.length <= 1) return [];
 
     const queryEmbedding = await SemanticVectorService.generateEmbedding(query);
     if (!queryEmbedding || queryEmbedding.length === 0) {
@@ -216,7 +217,7 @@ export class HybridSearchService {
       return [];
     }
 
-    console.log(`[SEMANTIC] Re-ranking ${candidateIds.length} candidates`);
+    console.log(`[SEMANTIC] Re-ranking ${candidateIds.length} candidates via Gemini text-embedding-004`);
 
     const results = (await prisma.$queryRawUnsafe(
       `
