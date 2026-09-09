@@ -3,16 +3,23 @@ import { getGeminiClient } from "./ai-key-store";
 
 const prisma = new PrismaClient();
 
+const EMBEDDING_MODELS = [
+  "gemini-embedding-2",
+  "gemini-embedding-001",
+  "text-embedding-004",
+];
+let workingEmbeddingModel: string | null = null;
+
 export class SemanticVectorService {
   /**
-   * Generate 384-dimensional vector embedding using Gemini text-embedding-004.
-   * Leverages Matryoshka Representation Learning (outputDimensionality: 384)
+   * Generate 384-dimensional vector embedding using Gemini embedding models.
+   * Cascades through active models (gemini-embedding-2, gemini-embedding-001, text-embedding-004)
+   * and leverages Matryoshka Representation Learning (outputDimensionality: 384)
    * to match the existing Postgres vector(384) column without database migrations.
    */
   static async generateEmbedding(text: string): Promise<number[] | null> {
     try {
       const { client } = await getGeminiClient({ provider: "gemini" });
-      const model = client.getGenerativeModel({ model: "text-embedding-004" });
 
       // Prepare text for embedding while preserving structure
       const preparedText = text
@@ -24,19 +31,40 @@ export class SemanticVectorService {
         return null;
       }
 
-      const result = await model.embedContent({
-        content: { role: "user", parts: [{ text: preparedText }] },
-        outputDimensionality: 384,
-      } as any);
+      const modelsToTry = workingEmbeddingModel
+        ? [workingEmbeddingModel, ...EMBEDDING_MODELS.filter((m) => m !== workingEmbeddingModel)]
+        : EMBEDDING_MODELS;
 
-      if (!result?.embedding?.values) {
-        return null;
+      let lastError: any = null;
+
+      for (const modelName of modelsToTry) {
+        try {
+          const model = client.getGenerativeModel({ model: modelName });
+          const result = await model.embedContent({
+            content: { role: "user", parts: [{ text: preparedText }] },
+            outputDimensionality: 384,
+          } as any);
+
+          const values = result?.embedding?.values;
+          if (values && values.length > 0) {
+            workingEmbeddingModel = modelName;
+            // Ensure exactly 384 dimensions (Matryoshka prefix)
+            return values.length === 384 ? values : values.slice(0, 384);
+          }
+        } catch (err: any) {
+          lastError = err;
+          continue;
+        }
       }
 
-      return result.embedding.values;
+      console.warn(
+        "[SEMANTIC] Gemini embedding failed across all models, falling back to keyword search:",
+        lastError?.message || lastError
+      );
+      return null;
     } catch (error) {
       console.warn(
-        "[SEMANTIC] Gemini text-embedding-004 failed, falling back to keyword search:",
+        "[SEMANTIC] Embedding service error:",
         error instanceof Error ? error.message : error
       );
       return null;

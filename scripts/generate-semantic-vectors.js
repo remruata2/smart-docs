@@ -101,7 +101,40 @@ async function main() {
   }
 
   const genAI = new GoogleGenerativeAI(apiKey);
-  const model = genAI.getGenerativeModel({ model: "text-embedding-004" });
+
+  const EMBEDDING_MODELS = [
+    "gemini-embedding-2",
+    "gemini-embedding-001",
+    "text-embedding-004",
+  ];
+  let workingModelName = null;
+
+  async function generateVector(content) {
+    const modelsToTry = workingModelName
+      ? [workingModelName, ...EMBEDDING_MODELS.filter((m) => m !== workingModelName)]
+      : EMBEDDING_MODELS;
+
+    let lastErr = null;
+    for (const mName of modelsToTry) {
+      try {
+        const model = genAI.getGenerativeModel({ model: mName });
+        const res = await model.embedContent({
+          content: { role: "user", parts: [{ text: content }] },
+          outputDimensionality: 384,
+        });
+
+        const values = res?.embedding?.values;
+        if (values && values.length > 0) {
+          workingModelName = mName;
+          return { values: values.length === 384 ? values : values.slice(0, 384), model: mName };
+        }
+      } catch (err) {
+        lastErr = err;
+        continue;
+      }
+    }
+    throw lastErr || new Error("All embedding models failed");
+  }
 
   const total = (await prisma.$queryRawUnsafe(`SELECT COUNT(*)::int AS c FROM file_list`))[0].c;
   const missingBefore = (await prisma.$queryRawUnsafe(
@@ -140,15 +173,7 @@ async function main() {
     }
 
     try {
-      const res = await model.embedContent({
-        content: { role: "user", parts: [{ text: content }] },
-        outputDimensionality: 384,
-      });
-
-      const embedding = res.embedding.values;
-      if (!embedding || embedding.length !== 384) {
-        throw new Error(`Unexpected embedding dimension: ${embedding?.length}`);
-      }
+      const { values: embedding, model: usedModel } = await generateVector(content);
 
       await prisma.$executeRawUnsafe(
         `UPDATE file_list SET semantic_vector = $1::vector WHERE id = $2`,
@@ -157,7 +182,7 @@ async function main() {
       );
 
       successCount++;
-      console.log(`  [${i + 1}/${records.length}] ✅ File ID ${r.id} (${r.file_no || "unnamed"}): "${(r.title || "").substring(0, 40)}" (384-dim)`);
+      console.log(`  [${i + 1}/${records.length}] ✅ File ID ${r.id} (${r.file_no || "unnamed"}): "${(r.title || "").substring(0, 40)}" (${usedModel}, 384-dim)`);
 
       // Gentle pause to respect API rate limits
       if (i < records.length - 1) {
