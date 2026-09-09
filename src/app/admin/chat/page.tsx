@@ -250,13 +250,13 @@ export default function AdminChatPage() {
 							</div>
 							<div>
 								<CardTitle className="text-base font-semibold flex items-center gap-2 text-foreground">
-									CID AI Archive Intelligence
+									Smart Docs AI Intelligence
 									<Badge variant="secondary" className="text-[10px] font-mono px-1.5 py-0">
 										Fast Hybrid Stream
 									</Badge>
 								</CardTitle>
 								<p className="text-xs text-muted-foreground">
-									Query case documents, categories, suspect information, and archive notes.
+									Search and query documents, categories, reports, and archive records.
 								</p>
 							</div>
 						</div>
@@ -283,18 +283,18 @@ export default function AdminChatPage() {
 								</div>
 								<div className="space-y-1 max-w-md">
 									<h3 className="font-semibold text-base text-foreground">
-										How can I help with the archive?
+										How can I help with your documents?
 									</h3>
 									<p className="text-xs text-muted-foreground leading-relaxed">
-										Ask direct questions about case file numbers, suspects, victim details, crime categories, or request summaries.
+										Ask direct questions about file numbers, topics, categories, specific records, or request summaries.
 									</p>
 								</div>
 								<div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-w-lg w-full pt-2">
 									{[
-										"Show recent cases in the archive",
-										"Summarize POCSO cases",
-										"Find cases with unknown suspects",
-										"List cases sorted by recent date",
+										"Show recent documents in the archive",
+										"Summarize records by category",
+										"Search documents by keyword or topic",
+										"List files sorted by date",
 									].map((suggestion) => (
 										<button
 											key={suggestion}

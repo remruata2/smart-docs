@@ -102,7 +102,7 @@ export async function* processChat(
 	) {
 		yield {
 			type: "token",
-			text: "Hello! I am your AI assistant for the CID document archive. You can ask me about specific cases, file numbers, crime categories, suspects, victims, or ask for summaries of recent records.",
+			text: "Hello! I am your AI assistant for Smart Docs. You can ask me about documents, file numbers, categories, records, or ask for summaries.",
 		};
 		yield {
 			type: "done",
@@ -133,7 +133,7 @@ export async function* processChat(
 	} else {
 		yield {
 			type: "progress",
-			progress: "Searching CID document records...",
+			progress: "Searching document records...",
 		};
 
 		const configuredLimit = await getSettingInt("ai.search.limit", 20);

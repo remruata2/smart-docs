@@ -22,8 +22,19 @@ export default function AdminSidebar({ setSidebarOpen }: AdminSidebarProps) {
   return (
     // This is the actual sidebar panel content
     <div className="flex flex-col h-screen sticky top-0 w-full bg-white shadow-xl overflow-y-auto">
+      {/* Brand Header */}
+      <div className="flex-shrink-0 flex items-center gap-2.5 px-4 py-4 border-b border-gray-200 bg-slate-50/70">
+        <div className="h-8 w-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-bold text-sm shadow-sm">
+          SD
+        </div>
+        <div>
+          <h2 className="text-base font-bold text-gray-900 tracking-tight leading-tight">Smart Docs</h2>
+          <p className="text-[11px] text-gray-500 font-medium">Document Intelligence</p>
+        </div>
+      </div>
+
       {/* User info */}
-      <div className="flex-shrink-0 flex items-center px-4 py-4 border-b border-gray-200">
+      <div className="flex-shrink-0 flex items-center px-4 py-3.5 border-b border-gray-200">
         <div className="flex-shrink-0 group block">
           <div className="flex items-center">
             <div className="h-8 w-8 rounded-full bg-gray-300 flex items-center justify-center">

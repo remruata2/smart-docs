@@ -37,7 +37,7 @@ export function ChatSourcesDialog({
 						{selectedSource ? "Source Document Details" : `Cited Sources (${sources.length})`}
 					</DialogTitle>
 					<DialogDescription>
-						Referenced case records from the CID document database.
+						Referenced records from the document database.
 					</DialogDescription>
 				</DialogHeader>
 

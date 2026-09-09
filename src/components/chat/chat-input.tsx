@@ -86,7 +86,7 @@ export function ChatInput({
 					value={inputMessage}
 					onChange={(e) => setInputMessage(e.target.value)}
 					onKeyDown={handleKeyDown}
-					placeholder="Ask about cases, file numbers, crime categories, suspects, or dates... (Enter to send, Shift+Enter for new line)"
+					placeholder="Ask about documents, file numbers, categories, or records... (Enter to send, Shift+Enter for new line)"
 					disabled={isLoading}
 					rows={1}
 					className="flex-1 bg-transparent resize-none border-0 p-1 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none min-h-[38px] max-h-[160px] leading-relaxed"
@@ -106,7 +106,7 @@ export function ChatInput({
 				</Button>
 			</div>
 			<div className="text-[11px] text-center text-muted-foreground">
-				CID AI search utilizes hybrid tsvector + semantic embeddings with real-time streaming.
+				Smart Docs search utilizes hybrid text + semantic vector embeddings with real-time streaming.
 			</div>
 		</div>
 	);

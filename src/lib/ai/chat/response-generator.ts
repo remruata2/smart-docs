@@ -60,7 +60,7 @@ function buildPrompt(
 - Cite relevant file numbers (e.g. [FILE_NO] or File: FILE_NO).`;
 	}
 
-	const prompt = `You are an expert AI assistant for the Criminal Investigation Department (CID) document archive.
+	const prompt = `You are an expert AI assistant for the Smart Docs document archive and intelligence system.
 
 === DATABASE CONTEXT ===
 ${context}
@@ -75,7 +75,7 @@ ${historyContext}
 ${roleInstructions}
 - Always be professional, precise, and factual.
 - Ground your answers strictly in the Database Context.
-- Reference relevant file numbers when citing cases or records.
+- Reference relevant file numbers when citing documents or records.
 - If the requested information is not in the context, state that clearly without guessing.
 - Use clear markdown formatting (headings, bullet points, bold key terms).
 
