@@ -13,6 +13,7 @@
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "prepare": "husky install",
+    "postinstall": "prisma generate",
     "import-data": "node scripts/import-data.js",
     "import-data:clear": "node scripts/import-data.js --clear",
     "convert-import": "node scripts/convert-and-import.js",

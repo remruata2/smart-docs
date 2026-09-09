@@ -47,27 +47,7 @@ const nextConfig: NextConfig = {
   compress: true,
   // Increase memory limit for large queries
   webpack: (config, { isServer }) => {
-    if (isServer) {
-      // Server-side specific configuration
-      // Handle server-side rendering issues with browser globals
-      config.resolve.fallback = {
-        ...config.resolve.fallback,
-        fs: false,
-        net: false,
-        tls: false,
-        child_process: false,
-        // Add fallbacks for browser globals that might be referenced
-        global: false,
-        globalThis: false,
-      };
-
-      // Disable problematic optimizations for server-side
-      config.optimization = {
-        ...config.optimization,
-        splitChunks: false, // Disable chunk splitting for server
-      };
-    } else {
-      // Client-side configuration
+    if (!isServer) {
       config.resolve.fallback = {
         ...config.resolve.fallback,
         fs: false,
