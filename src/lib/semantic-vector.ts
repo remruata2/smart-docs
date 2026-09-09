@@ -1,4 +1,3 @@
-import { pipeline } from "@xenova/transformers";
 // Use explicit file path to avoid ESM directory import issues under ts-node
 import { PrismaClient } from "../generated/prisma/index.js";
 
@@ -6,20 +5,42 @@ const prisma = new PrismaClient();
 
 export class SemanticVectorService {
   private static embedder: any = null;
+  private static initPromise: Promise<void> | null = null;
+  private static isAvailable: boolean = true;
 
   static async initialize() {
-    if (!this.embedder) {
-      console.log("Initializing semantic embedder...");
-      this.embedder = await pipeline(
-        "feature-extraction",
-        "Xenova/all-MiniLM-L6-v2"
-      );
-      console.log("Semantic embedder initialized successfully");
+    if (this.embedder) return;
+    if (!this.isAvailable) return;
+
+    if (!this.initPromise) {
+      this.initPromise = (async () => {
+        try {
+          console.log("Initializing semantic embedder...");
+          const { pipeline } = await import("@xenova/transformers");
+          this.embedder = await pipeline(
+            "feature-extraction",
+            "Xenova/all-MiniLM-L6-v2"
+          );
+          console.log("Semantic embedder initialized successfully");
+        } catch (error) {
+          console.warn(
+            "Warning: Could not initialize local @xenova/transformers embedder (optional native dependencies like sharp may be missing). Semantic vector search will gracefully fallback.",
+            error
+          );
+          this.isAvailable = false;
+          this.embedder = null;
+        }
+      })();
     }
+
+    await this.initPromise;
   }
 
-  static async generateEmbedding(text: string): Promise<number[]> {
+  static async generateEmbedding(text: string): Promise<number[] | null> {
     await this.initialize();
+    if (!this.embedder) {
+      return null;
+    }
 
     // Prepare text for embedding while preserving Markdown structure
     const preparedText = text
@@ -45,6 +66,12 @@ export class SemanticVectorService {
       }
 
       const embedding = await this.generateEmbedding(content);
+      if (!embedding) {
+        console.log(
+          `Skipping semantic vector update for file ${fileId} - embedder not available`
+        );
+        return;
+      }
 
       await prisma.$executeRaw`
         UPDATE file_list 
@@ -68,6 +95,9 @@ export class SemanticVectorService {
   ): Promise<any[]> {
     try {
       const queryEmbedding = await this.generateEmbedding(query);
+      if (!queryEmbedding) {
+        return [];
+      }
       const SIMILARITY_THRESHOLD = 0.3; // Only return results with >30% similarity
 
       const results = (await prisma.$queryRaw`

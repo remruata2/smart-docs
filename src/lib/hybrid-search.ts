@@ -211,6 +211,10 @@ export class HybridSearchService {
     if (candidateIds.length === 0) return [];
 
     const queryEmbedding = await SemanticVectorService.generateEmbedding(query);
+    if (!queryEmbedding || queryEmbedding.length === 0) {
+      console.log(`[SEMANTIC] Embedder unavailable, skipping re-ranking`);
+      return [];
+    }
 
     console.log(`[SEMANTIC] Re-ranking ${candidateIds.length} candidates`);
 
