@@ -113,7 +113,7 @@ export type FileFilterOptions = {
 
 let filterOptionsCache: { data: FileFilterOptions; expiresAt: number } | null = null;
 
-export function clearFilterOptionsCache() {
+export async function clearFilterOptionsCache() {
   filterOptionsCache = null;
 }
 
