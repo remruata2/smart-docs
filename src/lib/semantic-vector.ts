@@ -1,5 +1,4 @@
-// Use explicit file path to avoid ESM directory import issues under ts-node
-import { PrismaClient } from "../generated/prisma/index.js";
+import { PrismaClient } from "../generated/prisma";
 import { getGeminiClient } from "./ai-key-store";
 
 const prisma = new PrismaClient();
