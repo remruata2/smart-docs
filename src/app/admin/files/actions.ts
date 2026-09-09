@@ -111,7 +111,18 @@ export type FileFilterOptions = {
   years: number[];
 };
 
+let filterOptionsCache: { data: FileFilterOptions; expiresAt: number } | null = null;
+
+export function clearFilterOptionsCache() {
+  filterOptionsCache = null;
+}
+
 export async function getFilterOptions(): Promise<FileFilterOptions> {
+  const now = Date.now();
+  if (filterOptionsCache && filterOptionsCache.expiresAt > now) {
+    return filterOptionsCache.data;
+  }
+
   try {
     // Distinct categories via raw SQL to avoid Prisma validation on `not: null`
     const categoriesRows: Array<{ category: string | null }> = await prisma.$queryRaw`
@@ -135,7 +146,9 @@ export async function getFilterOptions(): Promise<FileFilterOptions> {
       .map((r) => (typeof r.year === "number" ? r.year : null))
       .filter((y): y is number => y !== null);
 
-    return { categories, years };
+    const result: FileFilterOptions = { categories, years };
+    filterOptionsCache = { data: result, expiresAt: now + 60000 };
+    return result;
   } catch (error) {
     console.error("Error fetching filter options:", error);
     return { categories: [], years: [] };
@@ -527,6 +540,7 @@ export async function createFileAction(
       }
     }
 
+    clearFilterOptionsCache();
     revalidatePath("/admin/files");
     return {
       success: true,
@@ -674,6 +688,7 @@ export async function updateFileAction(
       }
     }
 
+    clearFilterOptionsCache();
     revalidatePath("/admin/files");
     revalidatePath(`/admin/files/${id}/edit`);
     return {
@@ -699,6 +714,7 @@ export async function deleteFileAction(id: number): Promise<ActionResponse> {
     await prisma.fileList.delete({
       where: { id },
     });
+    clearFilterOptionsCache();
     revalidatePath("/admin/files");
     return { success: true, message: "File deleted successfully." };
   } catch (error) {

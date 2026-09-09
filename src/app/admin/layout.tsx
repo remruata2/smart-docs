@@ -17,21 +17,12 @@ export default function AdminLayout({
 	const [sidebarOpen, setSidebarOpen] = useState(false); // For mobile off-canvas
 
 	useEffect(() => {
-		if (status === "loading") return;
-		if (!session) {
+		if (status === "unauthenticated") {
 			router.push("/login");
 		}
-	}, [session, status, router]);
+	}, [status, router]);
 
-	if (status === "loading") {
-		return (
-			<div className="min-h-screen flex items-center justify-center">
-				<div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
-			</div>
-		);
-	}
-
-	if (!session) {
+	if (status === "unauthenticated") {
 		return null;
 	}
 

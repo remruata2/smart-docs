@@ -58,6 +58,7 @@ export default function AdminSidebar({ setSidebarOpen }: AdminSidebarProps) {
       <nav className="flex-1 px-2 py-4 space-y-1">
         <Link
           href="/admin"
+          prefetch={true}
           onClick={() => setSidebarOpen && setSidebarOpen(false)}
           className={`${baseLinkClasses} ${
             pathname === "/admin" ? activeLinkClasses : inactiveLinkClasses
@@ -82,6 +83,7 @@ export default function AdminSidebar({ setSidebarOpen }: AdminSidebarProps) {
         {session?.user.role === UserRole.admin && (
           <Link
             href="/admin/users"
+            prefetch={true}
             onClick={() => setSidebarOpen && setSidebarOpen(false)}
             className={`${baseLinkClasses} ${
               pathname.startsWith("/admin/users")
@@ -109,6 +111,7 @@ export default function AdminSidebar({ setSidebarOpen }: AdminSidebarProps) {
         {(session?.user.role === UserRole.admin || session?.user.role === UserRole.staff) && (
           <Link
             href="/admin/categories"
+            prefetch={true}
             onClick={() => setSidebarOpen && setSidebarOpen(false)}
             className={`${baseLinkClasses} ${
               pathname.startsWith("/admin/categories")
@@ -137,6 +140,7 @@ export default function AdminSidebar({ setSidebarOpen }: AdminSidebarProps) {
         {(session?.user.role === UserRole.admin || session?.user.role === UserRole.staff) && (
           <Link
             href="/admin/files"
+            prefetch={true}
             onClick={() => setSidebarOpen && setSidebarOpen(false)}
             className={`${baseLinkClasses} ${
               pathname.startsWith("/admin/files")
@@ -165,6 +169,7 @@ export default function AdminSidebar({ setSidebarOpen }: AdminSidebarProps) {
         {session?.user.role === UserRole.admin && (
           <Link
             href="/admin/chat"
+            prefetch={true}
             onClick={() => setSidebarOpen && setSidebarOpen(false)}
             className={`${baseLinkClasses} ${
               pathname.startsWith("/admin/chat")
@@ -198,6 +203,7 @@ export default function AdminSidebar({ setSidebarOpen }: AdminSidebarProps) {
             <div className="space-y-1">
               <Link
                 href="/admin/settings/ai-models"
+                prefetch={true}
                 onClick={() => setSidebarOpen && setSidebarOpen(false)}
                 className={`${baseLinkClasses} ${
                   pathname.startsWith("/admin/settings/ai-models")
@@ -224,6 +230,7 @@ export default function AdminSidebar({ setSidebarOpen }: AdminSidebarProps) {
 
               <Link
                 href="/admin/settings/ai-keys"
+                prefetch={true}
                 onClick={() => setSidebarOpen && setSidebarOpen(false)}
                 className={`${baseLinkClasses} ${
                   pathname.startsWith("/admin/settings/ai-keys")
@@ -250,6 +257,7 @@ export default function AdminSidebar({ setSidebarOpen }: AdminSidebarProps) {
 
               <Link
                 href="/admin/settings/ai-config"
+                prefetch={true}
                 onClick={() => setSidebarOpen && setSidebarOpen(false)}
                 className={`${baseLinkClasses} ${
                   pathname.startsWith("/admin/settings/ai-config")
