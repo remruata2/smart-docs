@@ -151,7 +151,7 @@ export async function getActiveModelNames(provider: AIProvider): Promise<string[
   } catch (e) {
     console.error("[AI-MODEL] Failed to list active models from DB", e);
   }
-  const fallback = ["gemini-2.5-flash", "gemini-3-flash-preview", "gemini-flash-latest", "gemini-3.5-flash-lite"];
+  const fallback = ["gemini-3.8-flash", "gemini-3.5-flash", "gemini-flash-latest", "gemini-3.5-flash-lite", "gemini-3.1-flash-lite"];
   modelNamesCache = { data: fallback, provider, expiresAt: Date.now() + CACHE_TTL_MS };
   return fallback;
 }
