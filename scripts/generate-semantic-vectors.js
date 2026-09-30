@@ -103,9 +103,9 @@ async function main() {
   const genAI = new GoogleGenerativeAI(apiKey);
 
   const EMBEDDING_MODELS = [
-    "gemini-embedding-2",
     "gemini-embedding-001",
-    "text-embedding-004",
+    "gemini-embedding-2-preview",
+    "gemini-embedding-2",
   ];
   let workingModelName = null;
 
@@ -164,7 +164,7 @@ async function main() {
     const r = records[i];
     const parts = [r.note, r.title, r.category, r.file_no, r.entry_date]
       .filter((v) => !!v && String(v).trim().length > 0);
-    const content = parts.join(" ").replace(/\n+/g, " ").trim().substring(0, 2048);
+    const content = parts.join(" ").replace(/\n+/g, " ").trim().substring(0, 12000);
 
     if (!content) {
       console.log(`  [${i + 1}/${records.length}] Skipping file ID ${r.id} (${r.file_no || "unnamed"}) — no text content`);

@@ -200,7 +200,63 @@ export class HybridSearchService {
     console.log(
       `[TSVECTOR] Found ${results.length} records (capped at ${cap})`
     );
-    return results;
+
+    if (results.length > 0) {
+      return results;
+    }
+
+    // Step 1b: If strict AND search yields 0 results (e.g. conversational words present),
+    // fall back to ranked OR-terms matching so documents containing the key terms are found and scored.
+    const words = rawQuery
+      .split(/\s+/)
+      .map((w) => w.replace(/[^a-zA-Z0-9]/g, "").trim())
+      .filter((w) => w.length >= 2);
+
+    if (words.length > 0) {
+      const orQuery = words.join(" | ");
+      const orParams: any[] = [orQuery];
+      let orSql = `
+        SELECT 
+          id,
+          file_no,
+          category,
+          title,
+          note,
+          entry_date_real,
+          ts_rank(search_vector, to_tsquery('english', $1)) as ts_rank
+        FROM file_list 
+        WHERE search_vector @@ to_tsquery('english', $1)`;
+
+      let orIndex = 2;
+      if (fileNo) {
+        orSql += ` AND file_no ILIKE '%' || $${orIndex} || '%'`;
+        orParams.push(fileNo);
+        orIndex++;
+      }
+      if (titlePhrase) {
+        orSql += ` AND title ILIKE '%' || $${orIndex} || '%'`;
+        orParams.push(titlePhrase);
+        orIndex++;
+      }
+
+      orSql += `
+        ORDER BY ts_rank DESC, entry_date_real DESC NULLS LAST
+        LIMIT $${orIndex}
+      `;
+      orParams.push(cap);
+
+      try {
+        const orResults = (await prisma.$queryRawUnsafe(orSql, ...orParams)) as HybridSearchResult[];
+        console.log(
+          `[TSVECTOR] Ranked OR fallback found ${orResults.length} records`
+        );
+        return orResults;
+      } catch (orErr) {
+        console.warn("[TSVECTOR] Ranked OR fallback failed:", orErr);
+      }
+    }
+
+    return [];
   }
 
   private static async semanticSearchOnCandidates(

@@ -4,9 +4,9 @@ import { getGeminiClient } from "./ai-key-store";
 const prisma = new PrismaClient();
 
 const EMBEDDING_MODELS = [
-  "gemini-embedding-2",
   "gemini-embedding-001",
-  "text-embedding-004",
+  "gemini-embedding-2-preview",
+  "gemini-embedding-2",
 ];
 let workingEmbeddingModel: string | null = null;
 
