@@ -43,7 +43,7 @@ export function deriveSearchQuery(
 	const baseQuery = cleanedTopic.length >= 2 ? cleanedTopic : q;
 
 	const isShortFollowUp =
-		question.length < 80 &&
+		question.length < 160 &&
 		(/\b(it|this|that|these|those|them|he|she|they|him|her)\b/i.test(lq) ||
 			/^(more|again|also|and|but|elaborate|expand|explain|describe|tell me more|what about|why|how|give|show)\b/i.test(
 				lq
@@ -59,7 +59,7 @@ export function deriveSearchQuery(
 					""
 				)
 				.replace(/[?.!]$/, "")
-				.substring(0, 100)
+				.substring(0, 200)
 				.trim();
 
 			if (cleanTopic && !lq.includes(cleanTopic.toLowerCase())) {

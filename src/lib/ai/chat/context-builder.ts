@@ -49,8 +49,8 @@ export function prepareContextForAI(
 		return "No relevant records found in the database.";
 	}
 
-	// Cap to top 10 records to keep prompt lean and reduce Gemini prefill latency
-	const topRecords = records.slice(0, 10);
+	// Include up to 20 relevant records from search results to ensure comprehensive coverage
+	const topRecords = records.slice(0, 20);
 
 	// Group records by category for structural clarity
 	const recordsByCategory = topRecords.reduce((acc, record) => {
@@ -66,12 +66,8 @@ export function prepareContextForAI(
 			? new Date(record.entry_date_real).toLocaleDateString()
 			: "Unknown date";
 
-		// Truncate overly long content to protect token budget
-		const content = record.note
-			? record.note.length > 1200
-				? `${record.note.substring(0, 1200)}... [truncated]`
-				: record.note
-			: "No details available";
+		// Include full document content without character truncation
+		const content = record.note || "No details available";
 
 		return `
 --- DOCUMENT ENTRY ${index + 1}: ${record.title} ---
@@ -83,7 +79,7 @@ ${content}
 ---`;
 	});
 
-	return `DATABASE CONTEXT (${topRecords.length} relevant records found${records.length > 10 ? `, showing top 10 of ${records.length}` : ""}):
+	return `DATABASE CONTEXT (${topRecords.length} relevant records found${records.length > topRecords.length ? `, showing top ${topRecords.length} of ${records.length}` : ""}):
 
 === RECORD DETAILS ===
 ${detailedRecords.join("\n")}

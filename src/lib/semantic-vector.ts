@@ -21,11 +21,11 @@ export class SemanticVectorService {
     try {
       const { client } = await getGeminiClient({ provider: "gemini" });
 
-      // Prepare text for embedding while preserving structure
+      // Prepare text for embedding while preserving structure (up to 12000 chars to cover full documents)
       const preparedText = text
         .replace(/\n+/g, " ")
         .trim()
-        .substring(0, 2048);
+        .substring(0, 12000);
 
       if (!preparedText) {
         return null;

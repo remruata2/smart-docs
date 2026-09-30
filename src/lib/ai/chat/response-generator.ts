@@ -22,14 +22,15 @@ function buildPrompt(
 	conversationHistory: ChatMessage[] = [],
 	queryType: string = "specific_search"
 ): { prompt: string; systemInstructions: string } {
-	const recentHistory = conversationHistory.slice(-4);
+	const recentHistory = conversationHistory.slice(-8);
 	const historyContext =
 		recentHistory.length > 0
 			? `\nCONVERSATION HISTORY:\n${recentHistory
 					.map((msg) => {
-						// Truncate long messages (especially prior AI responses) to keep prompt lean
-						const content = msg.content.length > 300
-							? msg.content.substring(0, 300) + "..."
+						// Keep user messages intact, allow prior assistant responses up to 1500 chars
+						const maxChars = msg.role === "assistant" ? 1500 : 800;
+						const content = msg.content.length > maxChars
+							? msg.content.substring(0, maxChars) + "..."
 							: msg.content;
 						return `${msg.role.toUpperCase()}: ${content}`;
 					})
@@ -136,8 +137,8 @@ export async function* generateAIResponseStream(
 			let streamTimeoutTimer: NodeJS.Timeout | null = null;
 			const timeoutPromise = new Promise<never>((_, reject) => {
 				streamTimeoutTimer = setTimeout(() => {
-					reject(new Error(`Model ${modelName} timed out waiting for first token (6000ms)`));
-				}, 6000);
+					reject(new Error(`Model ${modelName} timed out waiting for first token (20000ms)`));
+				}, 20000);
 			});
 
 			const result = await Promise.race([
@@ -234,8 +235,8 @@ export async function generateAIResponse(
 			let genTimeoutTimer: NodeJS.Timeout | null = null;
 			const timeoutPromise = new Promise<never>((_, reject) => {
 				genTimeoutTimer = setTimeout(() => {
-					reject(new Error(`Model ${modelName} timed out (8000ms)`));
-				}, 8000);
+					reject(new Error(`Model ${modelName} timed out (30000ms)`));
+				}, 30000);
 			});
 
 			const result = await Promise.race([
