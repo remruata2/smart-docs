@@ -343,6 +343,7 @@ export default function AdminChatPage() {
 									key={message.id}
 									message={message}
 									isStreaming={isStreaming && message.id === streamingMessageId}
+									progressText={isStreaming && message.id === streamingMessageId ? progressText : null}
 									onViewSource={(src) => handleViewSource(src, message.sources)}
 								/>
 							))

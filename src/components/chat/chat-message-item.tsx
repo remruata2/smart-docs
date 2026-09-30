@@ -4,7 +4,7 @@ import React, { useState, useMemo } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
-import { Bot, User, Copy, Check, FileText, ChevronDown, ChevronUp } from "lucide-react";
+import { Bot, User, Copy, Check, FileText, ChevronDown, ChevronUp, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ChatMessage, ChatSource } from "@/lib/ai/chat/types";
@@ -26,12 +26,14 @@ interface ChatMessageItemProps {
 	message: ChatMessage;
 	onViewSource?: (source: ChatSource) => void;
 	isStreaming?: boolean;
+	progressText?: string | null;
 }
 
 export function ChatMessageItem({
 	message,
 	onViewSource,
 	isStreaming = false,
+	progressText,
 }: ChatMessageItemProps) {
 	const isUser = message.role === "user";
 	const [copied, setCopied] = useState(false);
@@ -103,9 +105,25 @@ export function ChatMessageItem({
 
 				{/* Message Body */}
 				<div className="prose prose-sm dark:prose-invert max-w-none text-foreground leading-relaxed break-words">
-					<ReactMarkdown
-						remarkPlugins={[remarkGfm]}
-						rehypePlugins={[rehypeRaw]}
+					{isStreaming && (!cleanedContent || cleanedContent.trim().length === 0) ? (
+						<div className="flex items-center gap-2.5 py-1.5 text-muted-foreground not-prose">
+							<div className="flex items-center justify-center h-6 w-6 rounded-full bg-primary/10 text-primary shrink-0">
+								<Loader2 className="h-3.5 w-3.5 animate-spin" />
+							</div>
+							<span className="text-xs font-medium text-foreground/80 animate-pulse">
+								{progressText || "AI is thinking..."}
+							</span>
+							<span className="inline-flex gap-1 items-center ml-0.5">
+								<span className="h-1.5 w-1.5 rounded-full bg-primary animate-bounce [animation-delay:-0.3s]" />
+								<span className="h-1.5 w-1.5 rounded-full bg-primary animate-bounce [animation-delay:-0.15s]" />
+								<span className="h-1.5 w-1.5 rounded-full bg-primary animate-bounce" />
+							</span>
+						</div>
+					) : (
+						<>
+							<ReactMarkdown
+								remarkPlugins={[remarkGfm]}
+								rehypePlugins={[rehypeRaw]}
 						components={{
 							sup: ({ children }) => (
 								<sup className="text-[0.75em] leading-none align-super font-medium text-foreground">
@@ -198,7 +216,9 @@ export function ChatMessageItem({
 					</ReactMarkdown>
 
 					{isStreaming && (
-						<span className="inline-block w-1.5 h-4 ml-1 bg-primary animate-pulse align-middle" />
+						<span className="inline-block w-1.5 h-4 ml-1 bg-primary animate-pulse align-middle rounded-xs" />
+					)}
+						</>
 					)}
 				</div>
 
