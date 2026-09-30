@@ -6,11 +6,11 @@ import {
 import { ChatMessage } from "./types";
 
 const FALLBACK_MODELS = [
+	"gemini-3.7-flash",
 	"gemini-3.8-flash",
-	"gemini-3.5-flash",
-	"gemini-flash-latest",
 	"gemini-3.5-flash-lite",
 	"gemini-3.1-flash-lite",
+	"gemini-flash-latest",
 ];
 
 function estimateTokenCount(text: string): number {
@@ -135,11 +135,12 @@ export async function* generateAIResponseStream(
 			console.log(`[AI-STREAM] Connecting to Gemini model: ${modelName}`);
 			const model = client.getGenerativeModel({ model: modelName });
 
+			const timeoutMs = modelName === opts.model ? 45000 : 15000;
 			let streamTimeoutTimer: NodeJS.Timeout | null = null;
 			const timeoutPromise = new Promise<never>((_, reject) => {
 				streamTimeoutTimer = setTimeout(() => {
-					reject(new Error(`Model ${modelName} timed out waiting for first token (20000ms)`));
-				}, 20000);
+					reject(new Error(`Model ${modelName} timed out waiting for first token (${timeoutMs}ms)`));
+				}, timeoutMs);
 			});
 
 			const result = await Promise.race([

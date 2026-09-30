@@ -21,12 +21,13 @@ export default function AdminChatPage() {
 	const [error, setError] = useState<string | null>(null);
 
 	const [provider] = useState<"gemini">("gemini");
-	const [model, setModel] = useState<string>("gemini-2.5-flash");
+	const [model, setModel] = useState<string>("gemini-3.7-flash");
 	const [models, setModels] = useState<Array<{ name: string; label: string }>>([
-		{ name: "gemini-2.5-flash", label: "Gemini 2.5 Flash (Fastest)" },
-		{ name: "gemini-3-flash-preview", label: "Gemini 3 Flash Preview" },
+		{ name: "gemini-3.7-flash", label: "Gemini 3.7 Flash (Hybrid Reasoning)" },
+		{ name: "gemini-3.8-flash", label: "Gemini 3.8 Flash (Advanced Workflows)" },
+		{ name: "gemini-3.5-flash-lite", label: "Gemini 3.5 Flash Lite (Fastest TTFT)" },
+		{ name: "gemini-3.1-flash-lite", label: "Gemini 3.1 Flash Lite (High Efficiency)" },
 		{ name: "gemini-flash-latest", label: "Gemini Flash (Latest)" },
-		{ name: "gemini-3.5-flash-lite", label: "Gemini 3.5 Flash Lite" },
 	]);
 
 	// Dialog state for viewing sources

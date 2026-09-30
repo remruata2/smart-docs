@@ -1,7 +1,5 @@
-import { PrismaClient } from "../generated/prisma";
+import prisma from "@/lib/prisma";
 import { SemanticVectorService } from "./semantic-vector";
-
-const prisma = new PrismaClient();
 
 export interface HybridSearchResult {
   id: number;
@@ -38,11 +36,18 @@ export class HybridSearchService {
     try {
       console.log(`[HYBRID SEARCH] Starting search for: "${query}"`);
 
-      // Step 1: The Fast Keyword Filter (tsvector)
-      const tsvectorResults = await this.tsvectorSearch(query);
+      // Step 1: Fast Keyword Filter (tsvector) + Query Vector Generation in PARALLEL
+      // Running them concurrently saves ~600-1000ms of serial network roundtrip latency.
+      const [tsvectorResults, queryEmbedding] = await Promise.all([
+        this.tsvectorSearch(query),
+        SemanticVectorService.generateEmbedding(query).catch((embedErr) => {
+          console.warn("[HYBRID SEARCH] Parallel embedding generation failed:", embedErr);
+          return null;
+        }),
+      ]);
 
       console.log(
-        `[HYBRID SEARCH] Step 1 - tsvector found ${tsvectorResults.length} candidates`
+        `[HYBRID SEARCH] Step 1 - tsvector found ${tsvectorResults.length} candidates (embedding ready: ${!!queryEmbedding})`
       );
 
       if (tsvectorResults.length === 0) {
@@ -52,7 +57,8 @@ export class HybridSearchService {
           );
           const semanticResults = await SemanticVectorService.semanticSearch(
             query,
-            limit
+            limit,
+            queryEmbedding
           );
 
           if (semanticResults && semanticResults.length > 0) {
@@ -89,12 +95,13 @@ export class HybridSearchService {
         };
       }
 
-      // Step 2: The Semantic Re-Ranker (pgvector)
+      // Step 2: The Semantic Re-Ranker (pgvector) using pre-generated embedding
       const candidateIds = tsvectorResults.map((r) => r.id);
       const semanticResults = await this.semanticSearchOnCandidates(
         query,
         candidateIds,
-        limit
+        limit,
+        queryEmbedding
       );
 
       console.log(
@@ -262,18 +269,19 @@ export class HybridSearchService {
   private static async semanticSearchOnCandidates(
     query: string,
     candidateIds: number[],
-    limit: number
+    limit: number,
+    precomputedEmbedding?: number[] | null
   ): Promise<HybridSearchResult[]> {
     // If 0 or only 1 candidate found, no re-ranking is needed
     if (candidateIds.length <= 1) return [];
 
-    const queryEmbedding = await SemanticVectorService.generateEmbedding(query);
+    const queryEmbedding = precomputedEmbedding ?? (await SemanticVectorService.generateEmbedding(query));
     if (!queryEmbedding || queryEmbedding.length === 0) {
       console.log(`[SEMANTIC] Embedder unavailable, skipping re-ranking`);
       return [];
     }
 
-    console.log(`[SEMANTIC] Re-ranking ${candidateIds.length} candidates via Gemini text-embedding-004`);
+    console.log(`[SEMANTIC] Re-ranking ${candidateIds.length} candidates via vector cosine similarity`);
 
     const results = (await prisma.$queryRawUnsafe(
       `

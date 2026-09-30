@@ -1,7 +1,5 @@
-import { PrismaClient } from "../generated/prisma";
+import prisma from "@/lib/prisma";
 import { getGeminiClient } from "./ai-key-store";
-
-const prisma = new PrismaClient();
 
 const EMBEDDING_MODELS = [
   "gemini-embedding-001",
@@ -9,6 +7,11 @@ const EMBEDDING_MODELS = [
   "gemini-embedding-2",
 ];
 let workingEmbeddingModel: string | null = null;
+
+// In-memory cache for query embeddings to avoid redundant network calls
+const queryEmbeddingCache = new Map<string, { embedding: number[]; expiresAt: number }>();
+const EMBEDDING_CACHE_TTL_MS = 10 * 60_000; // 10 minutes
+const MAX_CACHE_SIZE = 200;
 
 export class SemanticVectorService {
   /**
@@ -31,6 +34,12 @@ export class SemanticVectorService {
         return null;
       }
 
+      // Fast cache hit: 0ms latency for repeated or similar queries
+      const cached = queryEmbeddingCache.get(preparedText);
+      if (cached && Date.now() < cached.expiresAt) {
+        return cached.embedding;
+      }
+
       const modelsToTry = workingEmbeddingModel
         ? [workingEmbeddingModel, ...EMBEDDING_MODELS.filter((m) => m !== workingEmbeddingModel)]
         : EMBEDDING_MODELS;
@@ -49,7 +58,19 @@ export class SemanticVectorService {
           if (values && values.length > 0) {
             workingEmbeddingModel = modelName;
             // Ensure exactly 384 dimensions (Matryoshka prefix)
-            return values.length === 384 ? values : values.slice(0, 384);
+            const finalVec = values.length === 384 ? values : values.slice(0, 384);
+
+            // Save to memory cache
+            if (queryEmbeddingCache.size >= MAX_CACHE_SIZE) {
+              const firstKey = queryEmbeddingCache.keys().next().value;
+              if (firstKey) queryEmbeddingCache.delete(firstKey);
+            }
+            queryEmbeddingCache.set(preparedText, {
+              embedding: finalVec,
+              expiresAt: Date.now() + EMBEDDING_CACHE_TTL_MS,
+            });
+
+            return finalVec;
           }
         } catch (err: any) {
           lastError = err;
@@ -106,10 +127,11 @@ export class SemanticVectorService {
 
   static async semanticSearch(
     query: string,
-    limit: number = 10
+    limit: number = 10,
+    precomputedEmbedding?: number[] | null
   ): Promise<any[]> {
     try {
-      const queryEmbedding = await this.generateEmbedding(query);
+      const queryEmbedding = precomputedEmbedding ?? (await this.generateEmbedding(query));
       if (!queryEmbedding) {
         return [];
       }
