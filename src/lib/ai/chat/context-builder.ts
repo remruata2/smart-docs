@@ -39,11 +39,64 @@ export async function getRecentFiles(limit: number = 10): Promise<SearchResult[]
 }
 
 /**
+ * Fetch all categories and their document counts, plus representative files for each category.
+ */
+export async function getCategorySummaryFiles(limitPerCategory: number = 10): Promise<{
+	categories: Array<{ category: string; count: number }>;
+	records: SearchResult[];
+}> {
+	try {
+		// 1. Fetch all distinct categories and their exact counts
+		const categoryCounts = (await prisma.$queryRawUnsafe(`
+			SELECT COALESCE(NULLIF(TRIM(category), ''), 'Uncategorized') as category, COUNT(*)::int as count
+			FROM file_list
+			GROUP BY COALESCE(NULLIF(TRIM(category), ''), 'Uncategorized')
+			ORDER BY count DESC
+		`)) as Array<{ category: string; count: number }>;
+
+		// 2. Fetch records across each category
+		const records: SearchResult[] = [];
+		for (const cat of categoryCounts) {
+			const catRecords = await prisma.fileList.findMany({
+				where: cat.category === "Uncategorized"
+					? { category: "" }
+					: { category: cat.category },
+				orderBy: { entry_date_real: "desc" },
+				take: limitPerCategory,
+				select: {
+					id: true,
+					file_no: true,
+					category: true,
+					title: true,
+					note: true,
+					entry_date_real: true,
+				},
+			});
+
+			records.push(...catRecords.map((r) => ({
+				id: r.id,
+				file_no: r.file_no,
+				category: r.category || "Uncategorized",
+				title: r.title,
+				note: r.note,
+				entry_date_real: r.entry_date_real,
+			})));
+		}
+
+		return { categories: categoryCounts, records };
+	} catch (error) {
+		console.error("[CONTEXT-BUILDER] Error fetching category summary:", error);
+		return { categories: [], records: [] };
+	}
+}
+
+/**
  * Prepare formatted database context string for the AI model.
  */
 export function prepareContextForAI(
 	records: SearchResult[],
-	query?: string
+	query?: string,
+	categoryCounts?: Array<{ category: string; count: number }>
 ): string {
 	if (!records || records.length === 0) {
 		return "No relevant records found in the database.";
@@ -79,15 +132,19 @@ ${content}
 ---`;
 	});
 
+	const categoryOverview = categoryCounts && categoryCounts.length > 0
+		? categoryCounts.map((c) => `- ${c.category}: ${c.count} total records in archive`).join("\n")
+		: Object.entries(recordsByCategory)
+				.map(([cat, list]) => `${cat}: ${list.length} records`)
+				.join("\n");
+
 	return `DATABASE CONTEXT (${topRecords.length} relevant records found${records.length > topRecords.length ? `, showing top ${topRecords.length} of ${records.length}` : ""}):
+
+=== CATEGORIES IN ARCHIVE ===
+${categoryOverview}
 
 === RECORD DETAILS ===
 ${detailedRecords.join("\n")}
-
-=== CATEGORY SUMMARY ===
-${Object.entries(recordsByCategory)
-	.map(([cat, list]) => `${cat}: ${list.length} records`)
-	.join("\n")}
 
 END OF DATABASE CONTEXT
 `;

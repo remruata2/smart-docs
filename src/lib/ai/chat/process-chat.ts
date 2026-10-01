@@ -1,6 +1,6 @@
 import { ChatChunk, ChatMessage, SearchResult } from "./types";
 import { generateAIResponseStream, generateAIResponse } from "./response-generator";
-import { prepareContextForAI, getRecentFiles } from "./context-builder";
+import { prepareContextForAI, getRecentFiles, getCategorySummaryFiles } from "./context-builder";
 import { extractCitedSources } from "./source-citation";
 import { HybridSearchService } from "@/lib/hybrid-search";
 import { getSettingInt } from "@/lib/app-settings";
@@ -23,6 +23,14 @@ export function deriveSearchQuery(
 		/\b\d+\s+(recent|latest|newest|last|most recent)\b/i.test(lq)
 	) {
 		return { searchQuery: q, queryType: "recent_files", isFollowUp: false };
+	}
+
+	// Check if this is a category overview / summary query
+	if (
+		/\b(categories|category|by category)\b/i.test(lq) &&
+		/\b(summarize|summary|breakdown|overview|list|show|all|what|display|group)\b/i.test(lq)
+	) {
+		return { searchQuery: q, queryType: "category_summary", isFollowUp: false };
 	}
 
 	// Check for analytical queries
@@ -119,6 +127,8 @@ export async function* processChat(
 	let searchMethod = "hybrid";
 	let searchStats = undefined;
 
+	let categoryCounts: Array<{ category: string; count: number }> | undefined = undefined;
+
 	// 3. Retrieve Records
 	if (queryType === "recent_files") {
 		// Extract count if specified (e.g. "recent 5 files")
@@ -130,6 +140,15 @@ export async function* processChat(
 		};
 		records = await getRecentFiles(limit);
 		searchMethod = "recent_files";
+	} else if (queryType === "category_summary") {
+		yield {
+			type: "progress",
+			progress: "Aggregating records across all archive categories...",
+		};
+		const categoryData = await getCategorySummaryFiles(10);
+		records = categoryData.records;
+		categoryCounts = categoryData.categories;
+		searchMethod = "category_summary";
 	} else {
 		yield {
 			type: "progress",
@@ -160,7 +179,7 @@ export async function* processChat(
 	};
 
 	// 5. Prepare Context
-	const context = prepareContextForAI(records, searchQuery);
+	const context = prepareContextForAI(records, searchQuery, categoryCounts);
 
 	// 6. Stream Model Tokens
 	let fullText = "";

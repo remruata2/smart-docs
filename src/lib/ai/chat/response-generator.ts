@@ -57,6 +57,13 @@ function buildPrompt(
 - The user wants more detailed information about previous results.
 - Provide comprehensive details from the database records with depth.`;
 			break;
+		case "category_summary":
+			roleInstructions = `
+- The user is asking for a summary or breakdown of the database records by category.
+- Clearly present ALL categories present in the database, including the total record count for each category.
+- Group and summarize the key documents, roles, and subject matter for each category.
+- Structure your response cleanly with distinct headings or sections for every category.`;
+			break;
 		case "recent_files":
 			roleInstructions = `
 - The user asked for recent or latest files.
