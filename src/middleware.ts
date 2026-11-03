@@ -1,72 +1,106 @@
-import { withAuth } from 'next-auth/middleware';
-import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
-import { getToken } from 'next-auth/jwt';
-import { UserRole } from './generated/prisma';
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { getToken } from "next-auth/jwt";
+import { UserRole } from "./generated/prisma";
 
-// First, handle public routes that don't need auth checks
+// Build a per-request Content-Security-Policy.
+//
+// The nonce is what makes this effective: modern browsers ignore
+// 'unsafe-inline' as soon as a nonce is present, so only scripts carrying the
+// nonce (all of Next.js' own inline/streamed scripts, which Next tags
+// automatically when the CSP request header carries a nonce) may run.
+// 'unsafe-inline' is kept purely as a fallback for very old browsers.
+//
+// Critically, `data:` is NOT allowed in script-src, so a
+// <script src="data:text/javascript;base64,..."> payload (the
+// ClickFix/EtherHiding injection that hit this app) is refused by the browser.
+function buildCsp(nonce: string): string {
+  return [
+    "default-src 'self'",
+    `script-src 'self' 'nonce-${nonce}' 'unsafe-inline'`,
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: blob: https:",
+    "font-src 'self' data:",
+    "connect-src 'self' https:",
+    "media-src 'self' blob:",
+    "worker-src 'self' blob:",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+    "frame-ancestors 'self'",
+    "upgrade-insecure-requests",
+  ].join("; ");
+}
+
+function setCsp(res: NextResponse, csp: string): NextResponse {
+  res.headers.set("Content-Security-Policy", csp);
+  return res;
+}
+
 export async function middleware(req: NextRequest) {
   const path = req.nextUrl.pathname;
-  
-  // Define public routes that don't need auth
-  const publicRoutes = ['/api/seed'];
-  const isPublicRoute = publicRoutes.some(route => path.startsWith(route));
-  
-  // Skip auth check for public routes
-  if (isPublicRoute) {
-    return NextResponse.next();
+
+  const nonce = btoa(crypto.randomUUID());
+  const csp = buildCsp(nonce);
+
+  const requestHeaders = new Headers(req.headers);
+  requestHeaders.set("x-nonce", nonce);
+  // Next.js reads the nonce from this request header and applies it to the
+  // script tags it renders.
+  requestHeaders.set("Content-Security-Policy", csp);
+
+  const continueWithCsp = () =>
+    setCsp(NextResponse.next({ request: { headers: requestHeaders } }), csp);
+  const redirectWithCsp = (to: string) =>
+    setCsp(NextResponse.redirect(new URL(to, req.url)), csp);
+
+  // Public routes that don't need auth checks
+  if (path.startsWith("/api/seed")) {
+    return continueWithCsp();
   }
-  
+
   // Skip auth check for API auth routes to prevent loops
-  if (path.startsWith('/api/auth')) {
-    return NextResponse.next();
+  if (path.startsWith("/api/auth")) {
+    return continueWithCsp();
   }
-  
-  // Get the token using next-auth/jwt
+
   const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
-  
-  // Handle authentication logic
-  const isAuthRoute = path === '/login';
-  const isDashboardRoute = path.startsWith('/dashboard');
-  const isAdminRoute = path.startsWith('/admin');
-  
-  // If user is on login page but already authenticated, redirect to dashboard
+
+  const isAuthRoute = path === "/login";
+  const isDashboardRoute = path.startsWith("/dashboard");
+  const isAdminRoute = path.startsWith("/admin");
+
+  // Authenticated users hitting the login page go to the dashboard
   if (isAuthRoute && token) {
-    return NextResponse.redirect(new URL('/dashboard', req.url));
+    return redirectWithCsp("/dashboard");
   }
-  
-  // If user is trying to access protected routes without auth, redirect to login
-  if (isDashboardRoute && !token) {
-    return NextResponse.redirect(new URL('/login', req.url));
+
+  // Unauthenticated users are kept out of protected areas server-side
+  if ((isDashboardRoute || isAdminRoute) && !token) {
+    return redirectWithCsp("/login");
   }
-  
-  // Redirect dashboard routes to admin routes
-  if (isDashboardRoute && !req.headers.get('x-middleware-rewrite')) {
-    // Redirect /dashboard to /admin
-    if (path === '/dashboard') {
-      return NextResponse.redirect(new URL('/admin', req.url));
+
+  // Legacy /dashboard URLs map onto /admin
+  if (isDashboardRoute) {
+    if (path === "/dashboard") {
+      return redirectWithCsp("/admin");
     }
-    // Redirect other dashboard paths to admin
-    if (path.startsWith('/dashboard/')) {
-      const newPath = path.replace('/dashboard', '/admin');
-      return NextResponse.redirect(new URL(newPath, req.url));
+    if (path.startsWith("/dashboard/")) {
+      return redirectWithCsp(path.replace("/dashboard", "/admin"));
     }
   }
 
-  // Admin routes protection
-  if ((isDashboardRoute || isAdminRoute) && token) {
-    if (isAdminRoute && token.role !== UserRole.admin) {
-      return NextResponse.redirect(new URL('/admin', req.url));
-    }
+  // Admin area is admin-only
+  if (isAdminRoute && token && token.role !== UserRole.admin) {
+    return redirectWithCsp("/unauthorized");
   }
-  
-  return NextResponse.next();
+
+  return continueWithCsp();
 }
 
 export const config = {
   matcher: [
-    '/dashboard/:path*',
-    '/login',
-    '/api/:path*'
+    // Run on every route except static assets and files with an extension.
+    "/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|.*\\.(?:png|jpg|jpeg|gif|webp|avif|svg|ico|css|js|map|woff|woff2|ttf|otf)$).*)",
   ],
 };

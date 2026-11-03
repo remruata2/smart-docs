@@ -6,6 +6,12 @@ const nextConfig: NextConfig = {
     // Enable styled-components support
     styledComponents: true,
   },
+  // This app does not use next/image. Disable the optimizer so the
+  // /_next/image endpoint (subject to unauthenticated RCE advisories via
+  // sharp/libvips) is unused.
+  images: {
+    unoptimized: true,
+  },
   // Server external packages
   serverExternalPackages: [
     "mammoth",
