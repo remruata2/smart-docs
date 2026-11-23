@@ -1,2 +1,4 @@
 export { default as RoleGuard } from './RoleGuard';
-// Export other auth components here
+export { default as AuthBranding } from './AuthBranding';
+export { default as LoginForm } from './LoginForm';
+
