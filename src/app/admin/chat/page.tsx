@@ -262,7 +262,7 @@ export default function AdminChatPage() {
 	};
 
 	return (
-		<div className="w-full h-[calc(100vh-64px)] p-3 md:p-6 flex flex-col gap-3">
+		<div className="w-full flex-1 flex flex-col min-h-0 gap-2">
 			{error && (
 				<Alert variant="destructive" className="shrink-0">
 					<AlertCircle className="h-4 w-4" />
@@ -270,7 +270,7 @@ export default function AdminChatPage() {
 				</Alert>
 			)}
 
-			<Card className="flex-1 flex flex-col min-h-0 shadow-sm border border-border overflow-hidden">
+			<Card className="flex-1 flex flex-col min-h-0 shadow-sm border border-border overflow-hidden py-0 gap-0">
 				{/* Card Header */}
 				<CardHeader className="py-3 px-4 border-b border-border/70 flex-shrink-0 bg-muted/20">
 					<div className="flex items-center justify-between gap-4 flex-wrap">

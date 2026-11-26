@@ -27,7 +27,7 @@ export default function AdminLayout({
 	}
 
 	return (
-		<div className="min-h-screen bg-gray-100 flex">
+		<div className="h-screen bg-gray-100 flex overflow-hidden">
 			<Toaster richColors position="top-right" />
 			{/* Static sidebar for desktop */}
 			<div className="hidden lg:flex lg:flex-shrink-0">
@@ -111,8 +111,8 @@ export default function AdminLayout({
 					</div>
 				</div>
 
-				<main className="flex-1 relative z-0 overflow-y-auto focus:outline-none py-2">
-					<div className="w-full px-2">
+				<main className="flex-1 relative z-0 overflow-y-auto focus:outline-none p-2 sm:p-3 flex flex-col">
+					<div className="w-full flex-1 flex flex-col min-h-0">
 						{children}
 					</div>
 				</main>
